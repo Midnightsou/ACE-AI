@@ -47,10 +47,12 @@ export function useAuth() {
         language: 'english',
         subjects: [],
         weakAreas: {},
+        studyTime: {},
         streak: 0,
         lastActive: new Date().toISOString(),
         isPro: false,
         dailyMessageCount: 0,
+        lastMessageReset: new Date().toDateString(),
         createdAt: new Date().toISOString(),
       }
       await setDoc(ref, newProfile)

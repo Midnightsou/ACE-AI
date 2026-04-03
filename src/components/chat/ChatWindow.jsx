@@ -1,14 +1,25 @@
 import { useEffect, useRef } from 'react'
 import { useChat } from '../../hooks/useChat'
+import { useChatStore } from '../../store/chatStore'
+import { useUserStore } from '../../store/userStore'
 import MessageBubble from './MessageBubble'
 import TypingIndicator from './TypingIndicator'
 import InputBar from './InputBar'
-import { useUserStore } from '../../store/userStore'
+import FileContextBanner from './FileContextBanner'
+
+const languageLabels = {
+  english: 'English',
+  pidgin: 'Pidgin',
+  yoruba: 'Yoruba',
+  hausa: 'Hausa',
+}
 
 export default function ChatWindow() {
-  const { messages, loading, send } = useChat()
+  const { messages, loading, send, fileContext, attachFile, clearFile } = useChat()
   const user = useUserStore((s) => s.user)
   const bottomRef = useRef(null)
+
+  const language = user?.profile?.language || 'english'
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -17,9 +28,7 @@ export default function ChatWindow() {
   const name = user?.profile?.name || 'there'
 
   return (
-    
-        
-  <div className="flex flex-col" style={{ height: '100%' }}>
+    <div className="flex flex-col" style={{ height: '100%' }}>
 
       {/* Header */}
       <div className="px-4 py-3 border-b border-zinc-100 bg-white flex items-center gap-3">
@@ -28,13 +37,15 @@ export default function ChatWindow() {
         </div>
         <div>
           <p className="text-sm font-semibold text-zinc-900">Ace</p>
-          <p className="text-xs text-zinc-400">Your personal tutor</p>
+          <p className="text-xs text-zinc-400">{languageLabels[language]} mode</p>
         </div>
       </div>
 
+      {/* File context banner */}
+      <FileContextBanner file={fileContext} onClear={clearFile} />
+
       {/* Messages */}
       <div className="flex-1 overflow-y-auto px-4 py-4 bg-zinc-50">
-
         {messages.length === 0 && (
           <div className="flex flex-col items-center justify-center h-full text-center gap-3 pb-12">
             <div className="w-14 h-14 bg-violet-100 rounded-2xl flex items-center justify-center">
@@ -46,8 +57,6 @@ export default function ChatWindow() {
                 I'm Ace — ask me anything. Maths, English, Science, JAMB — I got you.
               </p>
             </div>
-
-            {/* Quick prompts */}
             <div className="flex flex-col gap-2 w-full max-w-xs mt-2">
               {[
                 'Solve x² + 5x + 6 = 0',
@@ -75,7 +84,11 @@ export default function ChatWindow() {
       </div>
 
       {/* Input */}
-      <InputBar onSend={send} disabled={loading} />
+      <InputBar
+        onSend={send}
+        onFileExtracted={attachFile}
+        disabled={loading}
+      />
     </div>
   )
 }

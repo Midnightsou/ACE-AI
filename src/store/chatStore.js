@@ -3,17 +3,33 @@ import { create } from 'zustand'
 export const useChatStore = create((set, get) => ({
   messages: [],
   loading: false,
-  activeSubject: 'General',
+  streamingContent: '',
 
   addMessage: (message) =>
     set((state) => ({
       messages: [...state.messages, message],
     })),
 
+  setMessages: (messages) => set({ messages }),
+
   setLoading: (loading) => set({ loading }),
 
-  setActiveSubject: (subject) =>
-    set({ subject, messages: [] }),
+  setStreamingContent: (content) => set({ streamingContent: content }),
 
-  clearMessages: () => set({ messages: [] }),
+  clearStreaming: () => set({ streamingContent: '' }),
+
+  // Called when streaming is done — finalizes the message
+  finalizeStreamingMessage: () =>
+    set((state) => {
+      if (!state.streamingContent) return state
+      return {
+        messages: [
+          ...state.messages,
+          { role: 'assistant', content: state.streamingContent },
+        ],
+        streamingContent: '',
+      }
+    }),
+
+  clearMessages: () => set({ messages: [], streamingContent: '' }),
 }))

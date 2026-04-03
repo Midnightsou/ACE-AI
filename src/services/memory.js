@@ -13,7 +13,7 @@ import {
 } from 'firebase/firestore'
 import { db } from './firebase'
 
-// ─── Profile ─────────────────────────────────────────
+// ─── Profile ──────────────────────────────────────────
 
 export async function getProfile(uid) {
   const ref = doc(db, 'students', uid)
@@ -26,19 +26,55 @@ export async function updateProfile(uid, updates) {
   await updateDoc(ref, updates)
 }
 
+// ─── Conversations ─────────────────────────────────────
+
+export async function createConversation(uid, firstMessage) {
+  const ref = collection(db, 'students', uid, 'conversations')
+  const title = generateTitle(firstMessage)
+  const newDoc = await addDoc(ref, {
+    title,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  })
+  return newDoc.id
+}
+
+export async function updateConversationTitle(uid, conversationId, title) {
+  const ref = doc(db, 'students', uid, 'conversations', conversationId)
+  await updateDoc(ref, { title })
+}
+
+export async function loadConversations(uid, limitCount = 30) {
+  const ref = collection(db, 'students', uid, 'conversations')
+  const q = query(ref, orderBy('updatedAt', 'desc'), limit(limitCount))
+  const snap = await getDocs(q)
+  return snap.docs.map((d) => ({
+    id: d.id,
+    ...d.data(),
+  }))
+}
+
 // ─── Messages ─────────────────────────────────────────
 
-export async function saveMessage(uid, subject, message) {
-  const ref = collection(db, 'students', uid, 'chats', subject, 'messages')
+export async function saveMessage(uid, conversationId, message) {
+  const ref = collection(
+    db, 'students', uid, 'conversations', conversationId, 'messages'
+  )
   await addDoc(ref, {
     role: message.role,
     content: message.content,
     createdAt: serverTimestamp(),
   })
+
+  // Update conversation's updatedAt so it sorts to top
+  const convoRef = doc(db, 'students', uid, 'conversations', conversationId)
+  await updateDoc(convoRef, { updatedAt: serverTimestamp() })
 }
 
-export async function loadMessages(uid, subject, limitCount = 30) {
-  const ref = collection(db, 'students', uid, 'chats', subject, 'messages')
+export async function loadMessages(uid, conversationId, limitCount = 50) {
+  const ref = collection(
+    db, 'students', uid, 'conversations', conversationId, 'messages'
+  )
   const q = query(ref, orderBy('createdAt', 'asc'), limit(limitCount))
   const snap = await getDocs(q)
   return snap.docs.map((d) => ({
@@ -47,37 +83,12 @@ export async function loadMessages(uid, subject, limitCount = 30) {
   }))
 }
 
-// ─── Cognitive profile updater ─────────────────────────
-
-export async function updateCognitiveProfile(uid, subject, messages) {
-  if (!messages.length) return
-
-  const ref = doc(db, 'students', uid)
-  const snap = await getDoc(ref)
-  if (!snap.exists()) return
-
-  const profile = snap.data()
-
-  // Track subjects studied
-  const subjects = profile.subjects || []
-  if (!subjects.includes(subject)) {
-    subjects.push(subject)
-  }
-
-  // Track last active
-  await updateDoc(ref, {
-    subjects,
-    lastActive: new Date().toISOString(),
-    [`studyTime.${subject}`]: (profile.studyTime?.[subject] || 0) + 1,
-  })
-}
-
 // ─── Daily message count (freemium gate) ──────────────
 
 export async function incrementMessageCount(uid) {
   const ref = doc(db, 'students', uid)
   const snap = await getDoc(ref)
-  if (!snap.exists()) return
+  if (!snap.exists()) return 1
 
   const profile = snap.data()
   const today = new Date().toDateString()
@@ -103,7 +114,15 @@ export async function getMessageCount(uid) {
 
   const profile = snap.data()
   const today = new Date().toDateString()
-
   if (profile.lastMessageReset !== today) return 0
   return profile.dailyMessageCount || 0
+}
+
+// ─── Helpers ──────────────────────────────────────────
+
+function generateTitle(firstMessage) {
+  if (!firstMessage) return 'New chat'
+  const cleaned = firstMessage.trim()
+  if (cleaned.length <= 40) return cleaned
+  return cleaned.slice(0, 40).trimEnd() + '...'
 }

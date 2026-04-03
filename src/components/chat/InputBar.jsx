@@ -1,6 +1,7 @@
 import { useState } from 'react'
+import FileUpload from '../ui/FileUpload'
 
-export default function InputBar({ onSend, disabled }) {
+export default function InputBar({ onSend, onFileExtracted, disabled }) {
   const [text, setText] = useState('')
 
   function handleSend() {
@@ -18,7 +19,11 @@ export default function InputBar({ onSend, disabled }) {
 
   return (
     <div className="p-4 border-t border-zinc-100 bg-white">
-      <div className="flex items-end gap-2 bg-zinc-50 border border-zinc-200 rounded-2xl px-4 py-2 focus-within:border-violet-400 transition-colors">
+      <div className="flex items-end gap-2 bg-zinc-50 border border-zinc-200 rounded-2xl px-3 py-2 focus-within:border-violet-400 transition-colors">
+
+        {/* File upload */}
+        <FileUpload onExtracted={onFileExtracted} disabled={disabled} />
+
         <textarea
           value={text}
           onChange={(e) => setText(e.target.value)}
@@ -29,14 +34,15 @@ export default function InputBar({ onSend, disabled }) {
           className="flex-1 bg-transparent text-sm text-zinc-800 placeholder:text-zinc-400 outline-none resize-none max-h-32 py-2 disabled:opacity-50"
           style={{ scrollbarWidth: 'none' }}
         />
+
         <button
           onClick={handleSend}
           disabled={disabled || !text.trim()}
           className="w-8 h-8 bg-violet-600 hover:bg-violet-700 disabled:opacity-40 disabled:cursor-not-allowed rounded-xl flex items-center justify-center transition-colors flex-shrink-0 mb-1"
         >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M22 2L11 13" />
-            <path d="M22 2L15 22 11 13 2 9l20-7z" />
+            <path d="M22 2L11 13"/>
+            <path d="M22 2L15 22 11 13 2 9l20-7z"/>
           </svg>
         </button>
       </div>

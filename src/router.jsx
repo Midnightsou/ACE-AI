@@ -3,12 +3,12 @@ import { useAuth } from './hooks/useAuth'
 import LoginPage from './pages/LoginPage'
 import SignupPage from './pages/SignupPage'
 import ChatPage from './pages/ChatPage'
+import DrillPage from './pages/DrillPage'
+import ToolPage from './pages/ToolPage'
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth()
-
   if (loading) return null
-
   return user ? children : <Navigate to="/login" replace />
 }
 
@@ -22,6 +22,22 @@ export default function AppRouter() {
         element={
           <ProtectedRoute>
             <ChatPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/drill"
+        element={
+          <ProtectedRoute>
+            <DrillPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/tool/:toolId"
+        element={
+          <ProtectedRoute>
+            <ToolPage />
           </ProtectedRoute>
         }
       />

@@ -6,6 +6,7 @@ import MessageBubble from './MessageBubble'
 import TypingIndicator from './TypingIndicator'
 import InputBar from './InputBar'
 import FileContextBanner from './FileContextBanner'
+import StreamingBubble from './StreamingBubble'
 
 const languageLabels = {
   english: 'English',
@@ -15,7 +16,7 @@ const languageLabels = {
 }
 
 export default function ChatWindow() {
-  const { messages, loading, send, fileContext, attachFile, clearFile } = useChat()
+  const { messages, loading, send, fileContext, attachFile, clearFile, streamingContent } = useChat()
   const user = useUserStore((s) => s.user)
   const bottomRef = useRef(null)
 
@@ -79,7 +80,10 @@ export default function ChatWindow() {
           <MessageBubble key={i} message={msg} />
         ))}
 
-        {loading && <TypingIndicator />}
+        {streamingContent
+          ? <StreamingBubble content={streamingContent} />
+          : loading && <TypingIndicator />
+        }
         <div ref={bottomRef} />
       </div>
 

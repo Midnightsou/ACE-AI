@@ -3,6 +3,7 @@ import { useChatStore } from '../store/chatStore'
 import { useUserStore } from '../store/userStore'
 import { useConversationStore } from '../store/conversationStore'
 import { sendMessage } from '../services/deepseek'
+import { updateStreak } from '../services/streak'
 import {
   createConversation,
   saveMessage,
@@ -127,6 +128,7 @@ export function useChat() {
 
       bringToTop(conversationId)
       await incrementMessageCount(user.uid)
+      await updateStreak(user.uid)
 
     } catch (err) {
       clearStreaming()

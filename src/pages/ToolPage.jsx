@@ -4,9 +4,15 @@ import { getToolById } from '../tools/registry'
 import Sidebar from '../components/sidebar/Sidebar'
 import ComingSoon from '../components/tools/ComingSoon'
 import CVMaker from '../components/tools/CVMaker'
+import CVAnalyser from '../components/tools/CVAnalyser'
+import CoverLetter from '../components/tools/CoverLetter'
+import EssayWriter from '../components/tools/EssayWriter'
 
 const toolComponents = {
   'cv-maker': CVMaker,
+  'cv-analyser': CVAnalyser,
+  'cover-letter': CoverLetter,
+  'essay-writer': EssayWriter,
 }
 
 export default function ToolPage() {

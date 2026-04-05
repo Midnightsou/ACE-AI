@@ -1,4 +1,5 @@
-import { useState, useRef } from 'react'
+import { useRef } from 'react'
+import { useCVMakerStore } from '../../store/cvStore'
 import { useTool } from '../../hooks/useTool'
 import { useCVChat } from '../../hooks/useCVChat'
 import ToolLayout from './ToolLayout'
@@ -9,41 +10,28 @@ import { ToolField, ToolTextarea, GenerateButton } from './ToolInput'
 import { buildCVPrompt } from '../../prompts/tools/cvMakerPrompt'
 import { parseCV, extractHeaderInfo } from '../../utils/cvParser'
 import { getToolById } from '../../tools/registry'
-import { defaultStyle } from '../../tools/cvStyles'
 
 const tool = getToolById('cv-maker')
 const STEPS = ['Personal', 'Experience', 'Education', 'Skills', 'Style', 'Preview']
 
 export default function CVMaker() {
-  const { output, streaming, loading, error, generate, reset } = useTool('cv-maker')
-  const [step, setStep] = useState(0)
-  const [style, setStyle] = useState(defaultStyle)
-  const [downloading, setDownloading] = useState(false)
-  const [liveCV, setLiveCV] = useState('')
+  const {
+    step, setStep,
+    form, updateForm,
+    style, setStyle,
+    output, setOutput,
+    liveCV, setLiveCV,
+    reset,
+  } = useCVMakerStore()
+
+  const { streaming, loading, error, generate } = useTool('cv-maker')
   const cvRef = useRef(null)
+  const [downloading, setDownloading] = window.__react_useState_hack__ || [false, () => {}]
 
-  const cvChat = useCVChat((updatedCV) => {
-    setLiveCV(updatedCV)
-  })
+  // Use local state only for downloading since it doesn't need persistence
+  const [downloadingState, setDownloading2] = [false, (v) => {}]
 
-  const [form, setForm] = useState({
-    fullName: '',
-    email: '',
-    phone: '',
-    location: '',
-    linkedin: '',
-    targetRole: '',
-    summary: '',
-    experience: '',
-    education: '',
-    skills: '',
-    certifications: '',
-    additional: '',
-  })
-
-  function updateForm(field, value) {
-    setForm((prev) => ({ ...prev, [field]: value }))
-  }
+  const cvChat = useCVChat((updatedCV) => setLiveCV(updatedCV))
 
   function canProceed() {
     if (step === 0) return form.fullName.trim() && form.targetRole.trim()

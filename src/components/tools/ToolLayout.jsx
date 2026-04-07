@@ -7,7 +7,7 @@ export default function ToolLayout({ tool, children, actions }) {
 
   function handleBack() {
     setActiveTool('chat')
-    navigate('/chat')
+    navigate('/tools')
   }
 
   return (

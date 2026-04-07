@@ -104,79 +104,67 @@ export default function Sidebar({ isOpen, onClose }) {
             </button>
           </div>
 
-          {/* Tools section */}
+          {/* Tools page button */}
           <div className="px-3 pb-2">
             <button
-              onClick={() => setShowTools((v) => !v)}
-              className="w-full flex items-center justify-between px-2 py-1.5 text-xs text-zinc-500 hover:text-zinc-300 transition-colors uppercase tracking-wider"
+              onClick={() => { navigate('/tools'); onClose() }}
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors text-sm
+                ${location.pathname === '/tools'
+                  ? 'bg-violet-600 text-white'
+                  : 'text-zinc-400 hover:bg-zinc-800 hover:text-white'
+                }`}
             >
-              <span>Tools</span>
-              <svg
-                width="12" height="12"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                className={`transition-transform ${showTools ? 'rotate-180' : ''}`}
-              >
-                <path d="M6 9l6 6 6-6"/>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                <rect x="3" y="3" width="7" height="7" rx="1"/>
+                <rect x="14" y="3" width="7" height="7" rx="1"/>
+                <rect x="3" y="14" width="7" height="7" rx="1"/>
+                <rect x="14" y="14" width="7" height="7" rx="1"/>
               </svg>
+              All tools
             </button>
-
-            {showTools && (
-              <div className="mt-1 flex flex-col gap-0.5">
-                {toolCategories.map((cat) => {
-                  const catTools = tools.filter((t) => t.category === cat.id)
-                  if (!catTools.length) return null
-                  return (
-                    <div key={cat.id}>
-                      <p className="text-xs text-zinc-600 px-2 py-1.5">{cat.label}</p>
-                      {catTools.map((tool) => (
-                        <button
-                          key={tool.id}
-                          onClick={() => handleSelectTool(tool)}
-                          className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition-colors text-left
-                            ${activeTool === tool.id
-                              ? 'bg-violet-600 text-white'
-                              : 'text-zinc-400 hover:bg-zinc-800 hover:text-white'
-                            }`}
-                        >
-                          <span className="text-base">{tool.icon}</span>
-                          <span className="truncate">{tool.name}</span>
-                        </button>
-                      ))}
-                    </div>
-                  )
-                })}
-              </div>
-            )}
           </div>
 
-          {/* Recent conversations */}
+          {/* Recent conversations + tool sessions */}
           <div className="px-3 pb-3">
             <p className="text-xs text-zinc-500 px-2 py-1.5 uppercase tracking-wider">
-              Recent chats
+              Recent
             </p>
             {conversations.length === 0 ? (
               <p className="text-xs text-zinc-600 px-2 py-2">
-                No conversations yet.
+                No history yet.
               </p>
             ) : (
               <div className="flex flex-col gap-0.5">
-                {conversations.map((convo) => (
-                  <button
-                    key={convo.id}
-                    onClick={() => handleSelectConversation(convo.id)}
-                    className={`w-full text-left px-3 py-2 rounded-xl text-sm transition-colors truncate
-                      ${activeConversationId === convo.id && activeTool === 'chat'
-                        ? 'bg-violet-600 text-white'
-                        : 'text-zinc-400 hover:bg-zinc-800 hover:text-white'
-                      }`}
-                  >
-                    {convo.title || 'New chat'}
-                  </button>
-                ))}
+                {conversations.map((convo) => {
+                  const isTool = convo.type === 'tool'
+
+                  return (
+                    <button
+                      key={convo.id}
+                      onClick={() => {
+                        if (isTool) {
+                          setActiveTool(convo.toolId)
+                          navigate(`/tool/${convo.toolId}`)
+                        } else {
+                          handleSelectConversation(convo.id)
+                        }
+                        onClose()
+                      }}
+                      className={`w-full text-left px-3 py-2 rounded-xl text-sm transition-colors flex items-center gap-2 min-w-0
+                        ${(isTool && activeTool === convo.toolId) || (!isTool && activeConversationId === convo.id && activeTool === 'chat')
+                          ? 'bg-violet-600 text-white'
+                          : 'text-zinc-400 hover:bg-zinc-800 hover:text-white'
+                        }`}
+                    >
+                      {isTool && (
+                        <span className="text-sm flex-shrink-0">{convo.icon}</span>
+                      )}
+                      <span className="truncate text-xs">
+                        {convo.title || (isTool ? convo.toolName : 'New chat')}
+                      </span>
+                    </button>
+                  )
+                })}
               </div>
             )}
           </div>

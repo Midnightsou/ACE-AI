@@ -5,6 +5,8 @@ import { useTool } from '../../hooks/useTool'
 import { useCoverLetterChat } from '../../hooks/useCoverLetterChat'
 import ToolLayout from './ToolLayout'
 import CVStylePicker from './CVStylePicker'
+import { saveToolSession } from '../../services/memory'
+import { useUserStore } from '../../store/userStore'
 import { GenerateButton } from './ToolInput'
 import { buildCoverLetterPrompt } from '../../prompts/tools/coverLetterPrompt'
 import { getToolById } from '../../tools/registry'
@@ -186,7 +188,7 @@ export default function CoverLetter() {
     liveOutput, setLiveOutput,
     reset,
   } = useCoverLetterStore()
-
+const user = useUserStore((s) => s.user)
   const { streaming, loading, error, generate } = useTool('cover-letter')
   const [style, setStyle] = useState(defaultStyle)
   const [showStylePicker, setShowStylePicker] = useState(false)
@@ -205,6 +207,15 @@ export default function CoverLetter() {
       setLiveOutput(result)
     }
   }
+  if (user?.uid && result) {
+  saveToolSession(
+    user.uid,
+    'cover-letter',
+    'Cover Letter',
+    `Cover Letter — ${form.company || form.role}`,
+    '✉️'
+  ).catch(() => {})
+}
 
   async function handleDownloadPDF() {
     if (!letterRef.current) return

@@ -1,74 +1,74 @@
 export function buildOutlinePrompt(data) {
   return {
-    system: `You are an expert academic writer with deep knowledge across all subjects. You create clear, well-structured essay outlines.
+    system: `You are an expert academic writer. Create detailed essay outlines.
 
 Rules:
-- Create a logical, detailed outline for the essay
-- Match the academic level and essay type specified
-- Include introduction, body sections with subsections, and conclusion
-- Each section should have a clear purpose and 2-3 key points
-- Plain text only — no markdown, no asterisks
-- Use numbers and letters for structure (1. A. i.)
-- Be specific — not generic placeholder text`,
+- Create a comprehensive outline matching the word count target
+- For essays over 2000 words include more subsections
+- Each section must have a clear title and 3-4 key points to cover
+- Plain text only, no markdown, no asterisks
+- Format exactly like this:
+
+INTRODUCTION
+- Hook and background
+- Thesis statement
+- Essay roadmap
+
+SECTION 1: [Title]
+- Key point 1
+- Key point 2
+- Key point 3
+
+SECTION 2: [Title]
+- Key point 1
+- Key point 2
+- Key point 3
+
+CONCLUSION
+- Summary of main points
+- Restate thesis
+- Closing thoughts`,
 
     user: `Create a detailed outline for this essay:
 
 Topic: ${data.topic}
 Essay type: ${data.essayType}
 Academic level: ${data.academicLevel}
-Word count target: ${data.wordCount} words
+Target word count: ${data.wordCount} words
 Citation style: ${data.citationStyle}
+Writing style: ${data.writingStyle}
 Additional instructions: ${data.instructions || 'None'}
 
-Generate a clear, structured outline.`,
+Generate the outline now. Include enough sections to reach ${data.wordCount} words when written.`,
   }
 }
 
-export function buildEssayPrompt(data, outline) {
+export function buildSectionPrompt(data, sectionTitle, sectionPoints, previousContent, isFirst, isLast) {
   return {
-    system: `You are an expert academic writer. You write well-researched, compelling essays that match the specified academic level and style.
+    system: `You are an expert academic writer writing a ${data.essayType} essay at ${data.academicLevel} level.
 
 Rules:
-- Write a complete, polished essay based on the outline provided
-- Match the ${data.academicLevel} academic level throughout
-- Use ${data.citationStyle} citation format where relevant — use placeholder citations like (Author, Year) or [1] as appropriate
-- Essay type is ${data.essayType} — maintain appropriate structure and argumentation style
-- Target approximately ${data.wordCount} words
-- Use clear topic sentences for each paragraph
-- Ensure smooth transitions between sections
-- Plain text only — no markdown symbols, no asterisks, no headers with ##
-- Use the section titles from the outline as plain text headers followed by a blank line
-- Write in a natural academic voice appropriate for ${data.academicLevel} level`,
+- Write ONLY the section specified — not the full essay
+- Match ${data.academicLevel} academic level throughout
+- Use ${data.citationStyle} citation format — use placeholder citations like (Author, Year) or [1]
+- Writing style: ${data.writingStyle}
+- Plain text only — no markdown, no asterisks, no ## headers
+- Write the section title as plain text on its own line then start writing
+- Each section should be proportional to the total ${data.wordCount} word target
+- Ensure smooth flow ${isFirst ? 'as the opening' : isLast ? 'as the conclusion' : 'that connects to previous content'}
+- Do not add "Section X:" prefix — just the title and content`,
 
-    user: `Write a complete ${data.essayType} essay on: "${data.topic}"
+    user: `Write the "${sectionTitle}" section of this essay.
 
-Use this outline as your structure:
-${outline}
+Topic: "${data.topic}"
+Essay type: ${data.essayType}
+Total target: ${data.wordCount} words
 
-Additional instructions: ${data.instructions || 'None'}
+Key points to cover in this section:
+${sectionPoints}
 
-Write the full essay now.`,
-  }
-}
+${previousContent ? `Context from previous sections (do not repeat, just maintain flow):\n${previousContent.slice(-500)}` : ''}
 
-export function buildEssayFromScratchPrompt(data) {
-  return {
-    system: `You are an expert academic writer. You write well-researched, compelling essays.
-
-Rules:
-- Write a complete, polished essay
-- Match the ${data.academicLevel} academic level
-- Use ${data.citationStyle} citation format where relevant
-- Essay type is ${data.essayType}
-- Target approximately ${data.wordCount} words
-- Plain text only — no markdown, no asterisks
-- Use section titles as plain text followed by blank lines
-- Write in a natural academic voice`,
-
-    user: `Write a complete ${data.essayType} essay on: "${data.topic}"
-
-Additional instructions: ${data.instructions || 'None'}
-
-Write the full essay.`,
+Write ONLY this section now. Make it detailed and substantive.`,
   }
 }

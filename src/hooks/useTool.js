@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { useUserStore } from '../store/userStore'
 import { useToolHistoryStore } from '../store/toolHistoryStore'
-import { saveToolOutput, loadToolHistory, deleteToolOutput } from '../services/toolHistory'
+import { saveToolOutput, loadToolHistory, deleteToolOutput, saveToolSession } from '../services/toolHistory'
+import { getToolById } from '../tools/registry'
 
 const BASE_URL = 'https://api.featherless.ai/v1/chat/completions'
 
@@ -103,6 +104,27 @@ export function useTool(toolId) {
           ...metadata,
           createdAt: new Date(),
         })
+
+        const toolMeta = getToolById(toolId)
+        if (toolMeta && user?.uid) {
+          const preview = metadata?.fullName
+            ? `${toolMeta.name} — ${metadata.fullName}`
+            : metadata?.company
+              ? `${toolMeta.name} — ${metadata.company}`
+              : metadata?.topic
+                ? `${toolMeta.name} — ${metadata.topic.slice(0, 40)}`
+                : metadata?.targetRole
+                  ? `${toolMeta.name} — ${metadata.targetRole}`
+                  : toolMeta.name
+
+          await saveToolSession(
+            user.uid,
+            toolId,
+            toolMeta.name,
+            preview,
+            toolMeta.icon
+          ).catch(() => {})
+        }
       }
 
       return fullContent

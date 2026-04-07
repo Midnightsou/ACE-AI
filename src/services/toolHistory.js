@@ -10,6 +10,7 @@ import {
   doc,
 } from 'firebase/firestore'
 import { db } from './firebase'
+import { saveToolSession as saveToolSessionToConversations } from './memory'
 
 export async function saveToolOutput(uid, toolId, data) {
   const ref = collection(db, 'students', uid, 'toolHistory', toolId, 'outputs')
@@ -35,3 +36,5 @@ export async function deleteToolOutput(uid, toolId, outputId) {
   const ref = doc(db, 'students', uid, 'toolHistory', toolId, 'outputs', outputId)
   await deleteDoc(ref)
 }
+
+export const saveToolSession = saveToolSessionToConversations

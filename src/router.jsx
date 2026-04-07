@@ -5,6 +5,7 @@ import SignupPage from './pages/SignupPage'
 import ChatPage from './pages/ChatPage'
 import DrillPage from './pages/DrillPage'
 import ToolPage from './pages/ToolPage'
+import ToolsPage from './pages/ToolsPage'
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth()
@@ -17,30 +18,10 @@ export default function AppRouter() {
     <Routes>
       <Route path="/login" element={<LoginPage />} />
       <Route path="/signup" element={<SignupPage />} />
-      <Route
-        path="/chat"
-        element={
-          <ProtectedRoute>
-            <ChatPage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/drill"
-        element={
-          <ProtectedRoute>
-            <DrillPage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/tool/:toolId"
-        element={
-          <ProtectedRoute>
-            <ToolPage />
-          </ProtectedRoute>
-        }
-      />
+      <Route path="/chat" element={<ProtectedRoute><ChatPage /></ProtectedRoute>} />
+      <Route path="/tools" element={<ProtectedRoute><ToolsPage /></ProtectedRoute>} />
+      <Route path="/drill" element={<ProtectedRoute><DrillPage /></ProtectedRoute>} />
+      <Route path="/tool/:toolId" element={<ProtectedRoute><ToolPage /></ProtectedRoute>} />
       <Route path="*" element={<Navigate to="/chat" replace />} />
     </Routes>
   )

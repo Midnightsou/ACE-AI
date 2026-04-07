@@ -6,6 +6,7 @@ import {
   collection,
   addDoc,
   query,
+  where,
   orderBy,
   limit,
   getDocs,
@@ -52,6 +53,37 @@ export async function loadConversations(uid, limitCount = 30) {
     id: d.id,
     ...d.data(),
   }))
+}
+
+export async function saveToolSession(uid, toolId, toolName, preview, icon) {
+  const ref = collection(db, 'students', uid, 'conversations')
+  const existing = query(
+    ref,
+    where('type', '==', 'tool'),
+    where('toolId', '==', toolId),
+    limit(1)
+  )
+  const snap = await getDocs(existing)
+
+  if (!snap.empty) {
+    const docRef = snap.docs[0].ref
+    await updateDoc(docRef, {
+      title: preview,
+      updatedAt: serverTimestamp(),
+    })
+    return snap.docs[0].id
+  }
+
+  const newDoc = await addDoc(ref, {
+    type: 'tool',
+    toolId,
+    toolName,
+    icon,
+    title: preview,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  })
+  return newDoc.id
 }
 
 // ─── Messages ─────────────────────────────────────────

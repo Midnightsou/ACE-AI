@@ -29,7 +29,7 @@ The user will ask you to make specific changes. When they do:
 - Return the COMPLETE updated CV with the changes applied
 - Keep all sections intact unless asked to change them
 - Maintain the same plain text format with CAPS section headers
-- Never use markdown symbols like ** or ##
+- Never use markdown symbols like ** or ## or ---------
 - Never explain what you changed — just return the full updated CV
 - If the request is unclear, make a reasonable interpretation and apply it`
 

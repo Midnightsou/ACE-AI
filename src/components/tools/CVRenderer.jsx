@@ -255,6 +255,12 @@ export default forwardRef(function CVRenderer({ sections, header, style }, ref) 
               <TextBlock text={sections.certifications} />
             </div>
           )}
+          {sections?.Hobbies && (
+            <div style={{ marginBottom: '24px' }}>
+              <SectionTitle>Hobbies</SectionTitle>
+              <TextBlock text={sections.Hobbies} />
+            </div>
+          )}
 
           {sections?.languages && (
             <div style={{ marginBottom: '24px' }}>

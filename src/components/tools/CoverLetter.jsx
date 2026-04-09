@@ -207,14 +207,16 @@ const user = useUserStore((s) => s.user)
       setLiveOutput(result)
     }
   }
-  if (user?.uid && result) {
+  const [result, setResult] = useState("");
+
+if (user?.uid && result) {
   saveToolSession(
     user.uid,
     'cover-letter',
     'Cover Letter',
     `Cover Letter — ${form.company || form.role}`,
     '✉️'
-  ).catch(() => {})
+  ).catch(() => {});
 }
 
   async function handleDownloadPDF() {

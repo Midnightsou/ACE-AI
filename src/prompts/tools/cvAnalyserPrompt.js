@@ -11,7 +11,7 @@ Rules:
 - Never fabricate information — only reframe what exists
 - Keep the same person's real experience — just present it better
 - Use plain text with CAPS section headers followed by dashes
-- Do not use markdown symbols like ** or ##
+- Do not use markdown symbols like ** or ## or ---------
 - Structure: Summary, Work Experience, Education, Skills, Certifications`,
 
     user: `Analyze this CV and rewrite it to match the job description below.

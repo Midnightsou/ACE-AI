@@ -7,8 +7,6 @@ import { useAuth } from '../../hooks/useAuth'
 import { useToolStore } from '../../store/toolStore'
 import { tools, toolCategories } from '../../tools/registry'
 import { loadConversations } from '../../services/memory'
-import StudyStats from './StudyStats'
-import ReadinessScore from './ReadinessScore'
 import LanguageToggle from '../ui/LanguageToggle'
 
 export default function Sidebar({ isOpen, onClose }) {
@@ -172,8 +170,7 @@ export default function Sidebar({ isOpen, onClose }) {
 
         {/* Bottom — fixed */}
         <div className="flex-shrink-0">
-          <ReadinessScore />
-          <StudyStats />
+        
           <div className="border-t border-zinc-800">
             <LanguageToggle onClose={onClose} />
           </div>

@@ -71,45 +71,15 @@ export const tools = [
     category: 'creative',
     path: '/tool/image-creator',
   },
-  {
-    id: 'logo-creator',
-    name: 'Logo Creator',
-    description: 'Create logos for your brand',
-    icon: '✨',
-    category: 'creative',
-    path: '/tool/logo-creator',
-  },
-  {
-    id: 'sermon-writer',
-    name: 'Sermon Writer',
-    description: 'Write sermons and speeches',
-    icon: '📖',
-    category: 'creative',
-    path: '/tool/sermon-writer',
-  },
-  {
-    id: 'business-name',
-    name: 'Business Names',
-    description: 'Generate business name ideas',
-    icon: '🏢',
-    category: 'business',
-    path: '/tool/business-name',
-  },
-  {
-    id: 'linkedin-bio',
-    name: 'LinkedIn Bio',
-    description: 'Write your LinkedIn profile',
-    icon: '👔',
-    category: 'business',
-    path: '/tool/linkedin-bio',
-  },
+  
+  
   {
   id: 'dojo',
   name: 'Dojo Mode',
   description: 'Practice JAMB & WAEC questions, track your readiness',
   icon: '🥋',
   category: 'general',
-  path: '/drill',
+  path: '/tool/dojo',
 },
 ]
 

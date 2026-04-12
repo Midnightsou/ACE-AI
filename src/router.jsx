@@ -3,7 +3,6 @@ import { useAuth } from './hooks/useAuth'
 import LoginPage from './pages/LoginPage'
 import SignupPage from './pages/SignupPage'
 import ChatPage from './pages/ChatPage'
-import DrillPage from './pages/DrillPage'
 import ToolPage from './pages/ToolPage'
 import ToolsPage from './pages/ToolsPage'
 
@@ -20,7 +19,6 @@ export default function AppRouter() {
       <Route path="/signup" element={<SignupPage />} />
       <Route path="/chat" element={<ProtectedRoute><ChatPage /></ProtectedRoute>} />
       <Route path="/tools" element={<ProtectedRoute><ToolsPage /></ProtectedRoute>} />
-      <Route path="/drill" element={<ProtectedRoute><DrillPage /></ProtectedRoute>} />
       <Route path="/tool/:toolId" element={<ProtectedRoute><ToolPage /></ProtectedRoute>} />
       <Route path="*" element={<Navigate to="/chat" replace />} />
     </Routes>

@@ -3,7 +3,7 @@ import { useChatStore } from '../store/chatStore'
 import { useUserStore } from '../store/userStore'
 import { useConversationStore } from '../store/conversationStore'
 import { sendMessage } from '../services/deepseek'
-import { updateStreak } from '../services/streak'
+
 import {
   createConversation,
   saveMessage,
@@ -12,7 +12,7 @@ import {
   incrementMessageCount,
 } from '../services/memory'
 
-const FREE_LIMIT = 10
+const FREE_LIMIT = 150
 
 export function useChat() {
   const {

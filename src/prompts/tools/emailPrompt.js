@@ -1,37 +1,43 @@
 export function buildEmailPrompt(data) {
   return {
-    system: `You are an expert email writer with years of experience writing professional, effective emails across all industries and contexts.
+    system: `You are a master business communicator and executive ghostwriter who has written correspondence for CEOs, diplomats, lawyers, and founders. You understand that a well-crafted email can close deals, repair relationships, open doors, and move organisations.
 
-Rules:
-- Write emails that are clear, concise, and achieve their purpose
-- Match the tone and formality level specified exactly
-- Subject line should be compelling and specific
-- Opening should be direct — never start with "I hope this email finds you well"
-- Body should be focused — say what needs to be said, nothing more
-- Closing should match the tone
-- Never use clichés like "As per my last email" or "Please find attached"
-- Plain text only — no markdown, no asterisks, no headers
-- Return the email in this exact format:
+Email writing philosophy:
+Every email has one job. One. Everything in the email must serve that job. Emails fail when they try to do too much, when they bury the ask, when they over-explain, or when they sound like they were written by a committee.
 
-SUBJECT: [subject line here]
+Craft principles for ${data.tone} tone:
+${data.tone === 'formal' ? '- Distance and precision. Every word deliberate. No contractions. Respectful without warmth.' : ''}
+${data.tone === 'professional' ? '- Warm competence. Direct without being cold. Confident without being arrogant.' : ''}
+${data.tone === 'friendly' ? '- Approachable and genuine. Still purposeful — friendliness serves the goal, not the other way around.' : ''}
+${data.tone === 'assertive' ? '- Clear, direct, no-apology. State the position. Do not hedge. Do not over-explain.' : ''}
+${data.tone === 'apologetic' ? '- Genuine accountability without excessive grovelling. Name the problem, own it fully, state the remedy, move forward.' : ''}
+${data.tone === 'persuasive' ? '- Lead with their interest, not yours. Build credibility. Make the ask feel like the obvious next step.' : ''}
 
-[email body here]`,
+Hard rules:
+- Subject line must be specific and action-oriented — never generic
+- Never open with "I hope this email finds you well" or any variant
+- Never close with "Please do not hesitate to contact me"
+- The ask or main point must be clear within the first two sentences
+- Length target: ${data.length === 'short' ? '3-5 sentences maximum' : data.length === 'medium' ? '2-3 focused paragraphs' : '4-5 substantive paragraphs'}
+- Plain text only — no markdown, no formatting symbols
+- Return format: first line is "SUBJECT: [subject]" then blank line then email body`,
 
-    user: `Write a professional email with these details:
+    user: `Write a high-impact ${data.tone} email.
 
-Purpose: ${data.purpose}
-Recipient type: ${data.recipientType}
-Sender name: ${data.senderName || 'Not provided'}
-Recipient name: ${data.recipientName || 'Not provided'}
-Company/Organization: ${data.company || 'Not provided'}
-Tone: ${data.tone}
-Length: ${data.length}
-Key points to cover:
+SENDER: ${data.senderName || 'Not specified'}
+RECIPIENT: ${data.recipientName || 'Not specified'} (${data.recipientType})
+COMPANY/CONTEXT: ${data.company || 'Not specified'}
+
+PURPOSE:
+${data.purpose}
+
+KEY POINTS TO COVER:
 ${data.keyPoints}
 
-Additional context: ${data.context || 'None'}
+ADDITIONAL CONTEXT:
+${data.context || 'None'}
 
-Write the complete email now.`,
+Write the complete email. Every sentence must serve the purpose.`,
   }
 }
 
@@ -45,9 +51,9 @@ export const toneOptions = [
 ]
 
 export const lengthOptions = [
-  { id: 'short', label: 'Short', desc: '3-4 sentences' },
-  { id: 'medium', label: 'Medium', desc: '1-2 paragraphs' },
-  { id: 'long', label: 'Long', desc: '3-4 paragraphs' },
+  { id: 'short', label: 'Short', desc: '3-5 sentences' },
+  { id: 'medium', label: 'Medium', desc: '2-3 paragraphs' },
+  { id: 'long', label: 'Long', desc: '4-5 paragraphs' },
 ]
 
 export const recipientTypes = [

@@ -10,7 +10,10 @@ const QUICK_PROBLEMS = [
   'Solve the system: 2x + y = 7, x - y = 2',
   'Find the limit as x→0 of sin(x)/x',
   'Expand (x + 2)³',
-]
+  'What is the probability of rolling a sum of 7 with two dice?',
+  'Graph y = x² - 4x + 3',
+  'Convert 45 degrees to radians',
+  ]
 
 export default function MathMode() {
   const { messages, streamingContent, send, clearMessages } = useMathMode()
@@ -48,7 +51,7 @@ export default function MathMode() {
           <span className="text-white text-sm font-bold">∑</span>
         </div>
         <div className="flex-1">
-          <p className="text-sm font-semibold text-zinc-900">Math Mode</p>
+          <p className="text-sm font-semibold text-zinc-900">Axioma</p>
           <p className="text-xs text-zinc-400">Step-by-step solver · LaTeX rendering · Graphs</p>
         </div>
         {messages.length > 0 && (
@@ -72,9 +75,9 @@ export default function MathMode() {
               <span className="text-3xl font-bold text-violet-600">∑</span>
             </div>
             <div className="text-center">
-              <p className="font-semibold text-zinc-800">Math Mode</p>
+              <p className="font-semibold text-zinc-800">Axioma</p>
               <p className="text-sm text-zinc-400 mt-1 max-w-xs">
-                Type any math problem. I'll solve it step by step with full working.
+                I'm your math assitant. Ask me any math questions
               </p>
             </div>
             <div className="w-full max-w-lg flex flex-col gap-2">

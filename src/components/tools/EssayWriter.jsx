@@ -466,7 +466,7 @@ const user = useUserStore((s) => s.user)
         {/* ── Left panel ── */}
         <div
           className="w-full md:w-96 flex-shrink-0 flex flex-col border-r border-zinc-100 overflow-y-auto bg-white"
-          style={{ maxHeight: 'calc(100dvh - 57px)' }}
+          style={{ maxHeight: 'calc(100dvh - 112px)' }}
         >
 
           {/* Stage: input wizard */}
@@ -737,7 +737,7 @@ const user = useUserStore((s) => s.user)
         {/* ── Right panel — document ── */}
         <div
           className="hidden md:flex flex-col flex-1 bg-zinc-50 overflow-y-auto"
-          style={{ maxHeight: 'calc(100dvh - 57px)' }}
+          style={{ maxHeight: 'calc(100dvh - 112px)' }}
         >
           {/* Top bar */}
           <div className="flex items-center justify-between px-6 py-3 bg-white border-b border-zinc-100 sticky top-0 z-10">

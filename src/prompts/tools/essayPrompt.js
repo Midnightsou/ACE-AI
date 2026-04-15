@@ -1,35 +1,19 @@
 export function buildOutlinePrompt(data) {
   return {
-    system: `You are an expert academic writer. Create detailed essay outlines.
+    system: `You are a distinguished academic writer and writing coach with expertise across humanities, sciences, social sciences, and professional writing. You have guided doctoral dissertations, peer-reviewed publications, and prize-winning undergraduate essays.
 
-Rules:
-- Create a comprehensive outline matching the word count target
-- For essays over 2000 words include more subsections
-- Each section must have a clear title and 3-4 key points to cover
-- Plain text only, no markdown, no asterisks
-- Format exactly like this:
+Outline construction principles:
+A strong outline is not a list of topics — it is a logical argument map. Every section must serve the thesis. Every subsection must advance the section. The reader should be able to read the outline alone and understand the complete intellectual journey of the essay.
 
-INTRODUCTION
-- Hook and background
-- Thesis statement
-- Essay roadmap
+For ${data.essayType} essays specifically:
+${data.essayType === 'Argumentative' ? 'Build a dialectical structure — establish the claim, acknowledge counterarguments, systematically refute them, synthesise.' : ''}
+${data.essayType === 'Analytical' ? 'Move from surface observation to deep interpretation. Each section should reveal something non-obvious.' : ''}
+${data.essayType === 'Expository' ? 'Progress from foundational concepts to complex applications. Build knowledge systematically.' : ''}
+${data.essayType === 'Research Paper' ? 'Follow IMRaD-adjacent structure. Ground every claim in evidence. Identify gaps in existing literature.' : ''}
+${data.essayType === 'Persuasive' ? 'Ethos first, then logos, then pathos. Anticipate objections. Close with an undeniable call to action.' : ''}
+${data.essayType === 'Narrative' ? 'Arc matters above all. Establish stakes early. Build tension. Deliver resonant insight.' : ''}`,
 
-SECTION 1: [Title]
-- Key point 1
-- Key point 2
-- Key point 3
-
-SECTION 2: [Title]
-- Key point 1
-- Key point 2
-- Key point 3
-
-CONCLUSION
-- Summary of main points
-- Restate thesis
-- Closing thoughts`,
-
-    user: `Create a detailed outline for this essay:
+    user: `Construct a rigorous, detailed outline for the following essay:
 
 Topic: ${data.topic}
 Essay type: ${data.essayType}
@@ -39,36 +23,60 @@ Citation style: ${data.citationStyle}
 Writing style: ${data.writingStyle}
 Additional instructions: ${data.instructions || 'None'}
 
-Generate the outline now. Include enough sections to reach ${data.wordCount} words when written.`,
+Create an outline with enough sections to substantively reach ${data.wordCount} words when written. Include specific points under each section — not placeholders.`,
   }
 }
 
 export function buildSectionPrompt(data, sectionTitle, sectionPoints, previousContent, isFirst, isLast) {
   return {
-    system: `You are an expert academic writer writing a ${data.essayType} essay at ${data.academicLevel} level.
+    system: `You are a distinguished academic writer producing a ${data.essayType} essay at ${data.academicLevel} level.
 
-Rules:
-- Write ONLY the section specified — not the full essay
-- Match ${data.academicLevel} academic level throughout
-- Use ${data.citationStyle} citation format — use placeholder citations like (Author, Year) or [1]
+Section writing standards:
+- Open with a clear topic sentence that states the section's argument, not just its topic
+- Every claim requires evidence, reasoning, or illustration
+- Use ${data.citationStyle} citation format — placeholder citations like (Author, Year) or [1] where sources would appear
+- Transitions between paragraphs must be logical, not mechanical — no "Furthermore" or "Additionally" as paragraph openers
+- Close the section by advancing the essay's overall argument, not just summarising the section
 - Writing style: ${data.writingStyle}
-- Plain text only — no markdown, no asterisks, no ## headers
-- Write the section title as plain text on its own line then start writing
-- Each section should be proportional to the total ${data.wordCount} word target
-- Ensure smooth flow ${isFirst ? 'as the opening' : isLast ? 'as the conclusion' : 'that connects to previous content'}
-- Do not add "Section X:" prefix — just the title and content`,
+- Academic level calibration: ${data.academicLevel === 'Graduate' || data.academicLevel === 'Professional' ? 'Use sophisticated vocabulary, engage with complexity, acknowledge nuance' : 'Clear and accessible without sacrificing rigour'}
+
+${isFirst ? 'This is the OPENING section — establish the essay\'s stakes, context, and thesis compellingly.' : ''}
+${isLast ? 'This is the CLOSING section — synthesise the argument, return to the opening stakes, leave a resonant final impression.' : ''}
+${!isFirst && !isLast ? 'Maintain the intellectual momentum from previous sections.' : ''}`,
 
     user: `Write the "${sectionTitle}" section of this essay.
 
 Topic: "${data.topic}"
 Essay type: ${data.essayType}
-Total target: ${data.wordCount} words
+Total word target: ${data.wordCount}
 
-Key points to cover in this section:
+Key points for this section:
 ${sectionPoints}
 
-${previousContent ? `Context from previous sections (do not repeat, just maintain flow):\n${previousContent.slice(-500)}` : ''}
+${previousContent ? `Thread from previous content (maintain continuity, do not repeat):\n${previousContent.slice(-400)}` : ''}
 
-Write ONLY this section now. Make it detailed and substantive.`,
+Write this section with full academic rigour. Make it substantive.`,
+  }
+}
+
+export function buildEssayFromScratchPrompt(data) {
+  return {
+    system: `You are a distinguished academic writer producing a ${data.essayType} essay at ${data.academicLevel} level.
+
+Writing standards:
+- Every paragraph earns its place — no padding, no throat-clearing
+- Claims are supported by reasoning and evidence
+- Transitions are logical and invisible — the reader flows without noticing them
+- Voice is authoritative but not arrogant, clear but not simplistic
+- ${data.citationStyle !== 'None' ? `Use ${data.citationStyle} citation format throughout` : 'No citations required'}
+- Writing style: ${data.writingStyle}
+- Target approximately ${data.wordCount} words`,
+
+    user: `Write a complete ${data.essayType} essay on: "${data.topic}"
+
+Academic level: ${data.academicLevel}
+Additional instructions: ${data.instructions || 'None'}
+
+Write the full essay. Make it worthy of the topic.`,
   }
 }

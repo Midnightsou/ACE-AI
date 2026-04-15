@@ -7,7 +7,6 @@ import { useAuth } from '../../hooks/useAuth'
 import { useToolStore } from '../../store/toolStore'
 import { tools, toolCategories } from '../../tools/registry'
 import { loadConversations } from '../../services/memory'
-import LanguageToggle from '../ui/LanguageToggle'
 
 export default function Sidebar({ isOpen, onClose }) {
   const user = useUserStore((s) => s.user)
@@ -81,7 +80,7 @@ export default function Sidebar({ isOpen, onClose }) {
             className="text-zinc-400 hover:text-white transition-colors md:hidden"
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-              <path d="M18 6L6 18M6 6l12 12"/>
+              <path d="M18 6L6 18M6 6l12 12" />
             </svg>
           </button>
         </div>
@@ -96,7 +95,7 @@ export default function Sidebar({ isOpen, onClose }) {
               className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl border border-zinc-700 hover:bg-zinc-800 transition-colors text-sm text-zinc-300 hover:text-white"
             >
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                <path d="M12 5v14M5 12h14"/>
+                <path d="M12 5v14M5 12h14" />
               </svg>
               New chat
             </button>
@@ -113,10 +112,10 @@ export default function Sidebar({ isOpen, onClose }) {
                 }`}
             >
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                <rect x="3" y="3" width="7" height="7" rx="1"/>
-                <rect x="14" y="3" width="7" height="7" rx="1"/>
-                <rect x="3" y="14" width="7" height="7" rx="1"/>
-                <rect x="14" y="14" width="7" height="7" rx="1"/>
+                <rect x="3" y="3" width="7" height="7" rx="1" />
+                <rect x="14" y="3" width="7" height="7" rx="1" />
+                <rect x="3" y="14" width="7" height="7" rx="1" />
+                <rect x="14" y="14" width="7" height="7" rx="1" />
               </svg>
               All tools
             </button>
@@ -127,6 +126,7 @@ export default function Sidebar({ isOpen, onClose }) {
             <p className="text-xs text-zinc-500 px-2 py-1.5 uppercase tracking-wider">
               Recent
             </p>
+
             {conversations.length === 0 ? (
               <p className="text-xs text-zinc-600 px-2 py-2">
                 No history yet.
@@ -168,37 +168,27 @@ export default function Sidebar({ isOpen, onClose }) {
           </div>
         </div>
 
-        {/* Bottom — fixed */}
-        <div className="flex-shrink-0">
-        
-          <div className="border-t border-zinc-800">
-            <LanguageToggle onClose={onClose} />
-          </div>
-
-          {/* User info */}
-          <div className="p-3 border-t border-zinc-800">
-            <div className="flex items-center gap-3 px-2 py-2">
-              <div className="w-8 h-8 rounded-full bg-zinc-700 flex items-center justify-center text-zinc-300 text-xs font-bold flex-shrink-0">
-                {user?.profile?.name?.[0]?.toUpperCase() || user?.email?.[0]?.toUpperCase() || 'U'}
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm text-white truncate">
-                  {user?.profile?.name || 'User'}
-                </p>
-                <p className="text-xs text-zinc-500 truncate">{user?.email}</p>
-              </div>
-              <button
-                onClick={logout}
-                className="text-zinc-500 hover:text-zinc-300 transition-colors flex-shrink-0"
-                title="Log out"
-              >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                  <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/>
-                </svg>
-              </button>
+        {/* Bottom */}
+        <div className="flex-shrink-0 border-t border-zinc-800">
+          <button
+            onClick={() => { navigate('/profile'); onClose() }}
+            className="flex items-center gap-3 px-2 py-2 rounded-xl hover:bg-zinc-800 transition-colors w-full text-left"
+          >
+            <div className="w-8 h-8 rounded-full bg-zinc-700 flex items-center justify-center text-zinc-300 text-xs font-bold flex-shrink-0">
+              {user?.profile?.name?.[0]?.toUpperCase() || user?.email?.[0]?.toUpperCase() || 'U'}
             </div>
-          </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm text-white truncate">
+                {user?.profile?.name || 'User'}
+              </p>
+              <p className="text-xs text-zinc-500 truncate">{user?.email}</p>
+            </div>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#71717a" strokeWidth="2" strokeLinecap="round">
+              <path d="M9 18l6-6-6-6" />
+            </svg>
+          </button>
         </div>
+
       </div>
     </>
   )

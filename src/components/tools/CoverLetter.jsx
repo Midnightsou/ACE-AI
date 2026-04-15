@@ -260,7 +260,7 @@ if (user?.uid && result) {
 
         {/* ── Left panel — form + chat ── */}
         <div className="w-full md:w-2/5 flex flex-col border-r border-zinc-100 overflow-y-auto"
-          style={{ maxHeight: 'calc(100dvh - 57px)' }}
+          style={{ maxHeight: 'calc(100dvh - 112px)' }}
         >
           <div className="flex flex-col gap-5 p-5">
 
@@ -491,7 +491,7 @@ if (user?.uid && result) {
 
         {/* ── Right panel — live preview ── */}
         <div className="hidden md:flex flex-col flex-1 bg-zinc-100 overflow-y-auto"
-          style={{ maxHeight: 'calc(100dvh - 57px)' }}
+          style={{ maxHeight: 'calc(100dvh - 112px)' }}
         >
           {/* Top bar */}
           <div className="flex items-center justify-between px-5 py-3 bg-white border-b border-zinc-100">

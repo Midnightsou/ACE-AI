@@ -21,6 +21,7 @@ const LANGUAGE_OPTIONS = [
   { value: 'sql', label: 'SQL' },
   { value: 'html', label: 'HTML/CSS' },
   { value: 'bash', label: 'Bash/Shell' },
+  { value: 'csharp', label: 'C#' },
 ]
 
 const QUICK_STARTS = [
@@ -77,9 +78,10 @@ export default function Codex() {
           <span className="text-white text-xs font-bold font-mono">{'</>'}</span>
         </div>
         <div className="flex-1">
-          <p className="text-sm font-semibold text-zinc-900">Codex</p>
+          <p className="text-sm font-semibold text-zinc-900">Fabricare</p>
           <p className="text-xs text-zinc-400">AI coding assistant</p>
         </div>
+        
 
         {/* Language picker */}
         <div className="relative">
@@ -143,7 +145,7 @@ export default function Codex() {
             <div className="text-center">
               <p className="font-semibold text-zinc-800">Ace Codex</p>
               <p className="text-sm text-zinc-400 mt-1 max-w-xs">
-                Your AI coding partner. Tell me what you want to build and I'll help you plan and code it.
+                Your coding partner. Tell me what you want to build and I'll help you plan and code it.
               </p>
             </div>
 

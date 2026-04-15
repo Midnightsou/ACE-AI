@@ -10,6 +10,8 @@ import {
   loadMessages,
   getMessageCount,
   incrementMessageCount,
+  updateStreak,
+  
 } from '../services/memory'
 
 const FREE_LIMIT = 150

@@ -188,7 +188,7 @@ export default function DojoPodcast() {
             )}
 
             <p className="text-xs text-zinc-400 text-center">
-              Uses your browser's built-in voices · No API key required · Works offline
+              
             </p>
           </div>
         )}

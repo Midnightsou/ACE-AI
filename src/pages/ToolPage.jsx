@@ -77,6 +77,7 @@ export default function ToolPage() {
 
             <div className="w-5" />
           </div>
+          
         )}
 
         {/* Tool Content */}

@@ -4,6 +4,8 @@ import { useAuth } from '../hooks/useAuth'
 import { useUserStore } from '../store/userStore'
 import { updateProfile } from '../services/memory'
 import Sidebar from '../components/sidebar/Sidebar'
+import { updatePassword, EmailAuthProvider, reauthenticateWithCredential } from 'firebase/auth'
+import { auth } from '../services/firebase'
 
 const languages = [
   { code: 'english', label: 'English', flag: '🇬🇧' },
@@ -24,6 +26,13 @@ export default function ProfilePage() {
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState(null)
+  
+  const [currentPassword, setCurrentPassword] = useState('')
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [passwordSaving, setPasswordSaving] = useState(false)
+  const [passwordError, setPasswordError] = useState(null)
+  const [passwordSaved, setPasswordSaved] = useState(false)
 
   async function handleSave() {
     setSaving(true)
@@ -41,6 +50,39 @@ export default function ProfilePage() {
       console.error(err)
     } finally {
       setSaving(false)
+    }
+  }
+
+  async function handlePasswordChange() {
+    setPasswordError(null)
+
+    if (newPassword.length < 6) {
+      setPasswordError('New password must be at least 6 characters.')
+      return
+    }
+    if (newPassword !== confirmPassword) {
+      setPasswordError('Passwords do not match.')
+      return
+    }
+
+    setPasswordSaving(true)
+    try {
+      const credential = EmailAuthProvider.credential(user.email, currentPassword)
+      await reauthenticateWithCredential(auth.currentUser, credential)
+      await updatePassword(auth.currentUser, newPassword)
+      setPasswordSaved(true)
+      setCurrentPassword('')
+      setNewPassword('')
+      setConfirmPassword('')
+      setTimeout(() => setPasswordSaved(false), 3000)
+    } catch (err) {
+      if (err.code === 'auth/wrong-password') {
+        setPasswordError('Current password is incorrect.')
+      } else {
+        setPasswordError('Failed to update password. Try again.')
+      }
+    } finally {
+      setPasswordSaving(false)
     }
   }
 
@@ -156,6 +198,52 @@ export default function ProfilePage() {
                     </>
                   ) : (
                     'Save changes'
+                  )}
+                </button>
+              </div>
+            </div>
+
+            {/* Change password */}
+            <div className="bg-white rounded-2xl border border-zinc-100 shadow-sm overflow-hidden">
+              <div className="px-5 py-4 border-b border-zinc-50">
+                <p className="text-sm font-semibold text-zinc-800">Change password</p>
+              </div>
+              <div className="p-5 flex flex-col gap-3">
+                {[
+                  { label: 'Current password', value: currentPassword, set: setCurrentPassword },
+                  { label: 'New password', value: newPassword, set: setNewPassword },
+                  { label: 'Confirm new password', value: confirmPassword, set: setConfirmPassword },
+                ].map(({ label, value, set }) => (
+                  <div key={label} className="flex flex-col gap-1.5">
+                    <label className="text-xs font-medium text-zinc-500">{label}</label>
+                    <input
+                      type="password"
+                      value={value}
+                      onChange={(e) => set(e.target.value)}
+                      placeholder="••••••••"
+                      className="w-full px-4 py-3 border border-zinc-200 rounded-xl text-sm outline-none focus:border-violet-500 transition-colors"
+                    />
+                  </div>
+                ))}
+
+                {passwordError && (
+                  <p className="text-sm text-red-500 bg-red-50 px-4 py-3 rounded-xl">{passwordError}</p>
+                )}
+
+                <button
+                  onClick={handlePasswordChange}
+                  disabled={passwordSaving || !currentPassword || !newPassword || !confirmPassword}
+                  className="w-full py-3 bg-zinc-900 hover:bg-zinc-800 disabled:opacity-40 text-white text-sm font-medium rounded-xl transition-colors flex items-center justify-center gap-2"
+                >
+                  {passwordSaving ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      Updating...
+                    </>
+                  ) : passwordSaved ? (
+                    '✓ Password updated'
+                  ) : (
+                    'Update password'
                   )}
                 </button>
               </div>

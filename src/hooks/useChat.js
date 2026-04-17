@@ -3,6 +3,7 @@ import { useChatStore } from '../store/chatStore'
 import { useUserStore } from '../store/userStore'
 import { useConversationStore } from '../store/conversationStore'
 import { sendMessage } from '../services/deepseek'
+import { fetchURLContent } from '../services/urlFetcher'
 
 import {
   createConversation,
@@ -11,7 +12,6 @@ import {
   getMessageCount,
   incrementMessageCount,
   updateStreak,
-  
 } from '../services/memory'
 
 const FREE_LIMIT = 150
@@ -61,7 +61,6 @@ export function useChat() {
   async function send(text) {
     if (!text.trim() || loading) return
 
-    // Check free limit
     const count = await getMessageCount(user?.uid)
     if (count >= FREE_LIMIT) {
       addMessage({
@@ -71,14 +70,43 @@ export function useChat() {
       return
     }
 
-    // Build content — inject file context if present
     let fullContent = text
+    let enrichedBlocks = []
+
+    // URL detection + fetching
+    const urlMatches = text.match(/(https?:\/\/[^\s]+)/g)
+    if (urlMatches && urlMatches.length > 0) {
+      try {
+        const fetchedContents = await Promise.all(
+          urlMatches.slice(0, 2).map(async (url) => {
+            const cleanUrl = url.replace(/[),.]+$/, '')
+            const content = await fetchURLContent(cleanUrl)
+            return `[Content from ${cleanUrl}]:\n${content}`
+          })
+        )
+        enrichedBlocks.push(...fetchedContents)
+      } catch (err) {
+        console.warn('URL fetch failed:', err)
+      }
+    }
+
+    // File context injection
     if (fileContext?.content) {
-      const sourceLabel = fileContext.type === 'pdf'
-        ? `PDF titled "${fileContext.name}"`
-        : `image titled "${fileContext.name}"`
-      fullContent = `The student has uploaded a ${sourceLabel}. Here is the extracted text content:\n\n${fileContext.content.slice(0, 6000)}\n\n---\n\nStudent's question: ${text}`
+      const sourceLabel =
+        fileContext.type === 'pdf'
+          ? `PDF titled "${fileContext.name}"`
+          : `image titled "${fileContext.name}"`
+
+      enrichedBlocks.push(
+        `The student has uploaded a ${sourceLabel}. Here is the extracted text content:\n\n${fileContext.content.slice(0, 6000)}`
+      )
+
       setFileContext(null)
+    }
+
+    // Combine everything
+    if (enrichedBlocks.length > 0) {
+      fullContent = `${enrichedBlocks.join('\n\n---\n\n')}\n\n---\n\nStudent's question: ${text}`
     }
 
     const userMessage = { role: 'user', content: text }
@@ -91,7 +119,6 @@ export function useChat() {
     try {
       let conversationId = activeConversationId
 
-      // Create new conversation if none active
       if (!conversationId) {
         conversationId = await createConversation(user.uid, text)
         setActiveConversationId(conversationId)
@@ -103,17 +130,15 @@ export function useChat() {
         })
       }
 
-      // Save user message to Firestore
       await saveMessage(user.uid, conversationId, userMessage)
 
       const history = [...messages, messageForAI]
       let finalReply = ''
 
-      // Stream the response
       await sendMessage({
         messages: history,
         profile: user?.profile || {},
-        recentMessages: messages.slice(-10),
+        recentMessages: messages.slice(-4),
         apiKey: import.meta.env.VITE_FEATHERLESS_API_KEY,
         onChunk: (content) => {
           setStreamingContent(content)
@@ -121,10 +146,8 @@ export function useChat() {
         },
       })
 
-      // Finalize — move streaming content into messages array
       finalizeStreamingMessage()
 
-      // Save completed response to Firestore
       const assistantMessage = { role: 'assistant', content: finalReply }
       await saveMessage(user.uid, conversationId, assistantMessage)
 
@@ -145,7 +168,9 @@ export function useChat() {
 
       addMessage({
         role: 'assistant',
-        content: errorMessages[status] || 'Something went wrong. Check your connection and try again.',
+        content:
+          errorMessages[status] ||
+          'Something went wrong. Check your connection and try again.',
       })
 
       console.error('AI error:', err)

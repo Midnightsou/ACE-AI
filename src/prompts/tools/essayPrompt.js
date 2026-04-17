@@ -28,34 +28,32 @@ Create an outline with enough sections to substantively reach ${data.wordCount} 
 }
 
 export function buildSectionPrompt(data, sectionTitle, sectionPoints, previousContent, isFirst, isLast) {
+  const sectionTarget = data.sectionWordTarget || Math.ceil(parseInt(data.wordCount) / 5)
+
   return {
     system: `You are a distinguished academic writer producing a ${data.essayType} essay at ${data.academicLevel} level.
 
-Section writing standards:
-- Open with a clear topic sentence that states the section's argument, not just its topic
-- Every claim requires evidence, reasoning, or illustration
-- Use ${data.citationStyle} citation format — placeholder citations like (Author, Year) or [1] where sources would appear
-- Transitions between paragraphs must be logical, not mechanical — no "Furthermore" or "Additionally" as paragraph openers
-- Close the section by advancing the essay's overall argument, not just summarising the section
-- Writing style: ${data.writingStyle}
-- Academic level calibration: ${data.academicLevel === 'Graduate' || data.academicLevel === 'Professional' ? 'Use sophisticated vocabulary, engage with complexity, acknowledge nuance' : 'Clear and accessible without sacrificing rigour'}
+CRITICAL WORD COUNT REQUIREMENT: This section must be EXACTLY ${sectionTarget} words. Count carefully. Do not write less. Do not write more. ${sectionTarget} words is non-negotiable.
 
-${isFirst ? 'This is the OPENING section — establish the essay\'s stakes, context, and thesis compellingly.' : ''}
-${isLast ? 'This is the CLOSING section — synthesise the argument, return to the opening stakes, leave a resonant final impression.' : ''}
-${!isFirst && !isLast ? 'Maintain the intellectual momentum from previous sections.' : ''}`,
+Writing standards:
+- Open with a clear topic sentence
+- Every claim requires evidence or reasoning
+- Use ${data.citationStyle} citation format
+- Writing style: ${data.writingStyle}
+${isFirst ? '- This is the OPENING — establish stakes, context, and thesis compellingly.' : ''}
+${isLast ? '- This is the CLOSING — synthesise, return to opening stakes, leave a resonant impression.' : ''}`,
 
     user: `Write the "${sectionTitle}" section of this essay.
 
 Topic: "${data.topic}"
-Essay type: ${data.essayType}
-Total word target: ${data.wordCount}
+REQUIRED WORD COUNT FOR THIS SECTION: ${sectionTarget} words exactly.
 
-Key points for this section:
+Key points:
 ${sectionPoints}
 
-${previousContent ? `Thread from previous content (maintain continuity, do not repeat):\n${previousContent.slice(-400)}` : ''}
+${previousContent ? `Previous content (maintain continuity):\n${previousContent.slice(-400)}` : ''}
 
-Write this section with full academic rigour. Make it substantive.`,
+Write exactly ${sectionTarget} words. Count them.`,
   }
 }
 

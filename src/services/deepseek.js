@@ -33,7 +33,7 @@ export async function sendMessage({ messages, profile, recentMessages = [], apiK
         },
         ...messages,
       ],
-      temperature: 0.7,
+      temperature: 0.5,
       max_tokens: 4096,
       stream: true,
     }),

@@ -162,57 +162,51 @@ const user = useUserStore((s) => s.user)
   }
 
   async function handleGenerateEssay() {
-    if (!outline) return
-    setLoading(true)
-    setError(null)
-    setStage('essay')
-    setEssay('')
-    setLiveEssay('')
+  if (!outline) return
+  setLoading(true)
+  setError(null)
+  setStage('essay')
+  setEssay('')
+  setLiveEssay('')
 
-    const sections = parseOutlineSections(outline)
-    let fullEssay = ''
+  const sections = parseOutlineSections(outline)
+  const wordsPerSection = Math.ceil(parseInt(form.wordCount) / sections.length)
+  let fullEssay = ''
 
-    try {
-      for (let i = 0; i < sections.length; i++) {
-        const section = sections[i]
-        setGeneratingSection(section.title)
+  try {
+    for (let i = 0; i < sections.length; i++) {
+      const section = sections[i]
+      setGeneratingSection(section.title)
 
-        const { system, user } = buildSectionPrompt(
-          form,
-          section.title,
-          section.points.join('\n'),
-          fullEssay,
-          i === 0,
-          i === sections.length - 1
-        )
+      // Pass word target per section
+      const sectionForm = { ...form, sectionWordTarget: wordsPerSection }
 
-        let sectionContent = ''
-        await streamText(system, user, (chunk) => {
-          sectionContent = chunk
-          setLiveEssay(fullEssay + '\n\n' + chunk)
-        })
+      const { system, user } = buildSectionPrompt(
+        sectionForm,
+        section.title,
+        section.points.join('\n'),
+        fullEssay,
+        i === 0,
+        i === sections.length - 1
+      )
 
-        fullEssay += (fullEssay ? '\n\n' : '') + sectionContent
-        setEssay(fullEssay)
-        setLiveEssay(fullEssay)
-      }
-      if (user?.uid && fullEssay) {
-  saveToolSession(
-    user.uid,
-    'essay-writer',
-    'Essay Writer',
-    `Essay — ${form.topic.slice(0, 40)}`,
-    '📝'
-  ).catch(() => {})
-}
-    } catch (err) {
-      setError('Failed to generate essay. Try again.')
-      console.error(err)
-    } finally {
-      setLoading(false)
-      setGeneratingSection('')
+      let sectionContent = ''
+      await streamText(system, user, (chunk) => {
+        sectionContent = chunk
+        setLiveEssay(fullEssay + '\n\n' + chunk)
+      })
+
+      fullEssay += (fullEssay ? '\n\n' : '') + sectionContent
+      setEssay(fullEssay)
+      setLiveEssay(fullEssay)
     }
+  } catch (err) {
+    setError('Failed to generate essay. Try again.')
+  } finally {
+    setLoading(false)
+    setGeneratingSection('')
   }
+}
 
   function handleDownload() {
     if (!currentEssay) return

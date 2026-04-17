@@ -54,6 +54,7 @@ export function useAuth() {
         isPro: false,
         dailyMessageCount: 0,
         lastMessageReset: new Date().toDateString(),
+        onboarded: false,
         createdAt: new Date().toISOString(),
       }
       await setDoc(ref, newProfile)

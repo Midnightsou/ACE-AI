@@ -1,4 +1,4 @@
-# 🎓 My Grim Tutor
+# ACE AI
 
 A comprehensive AI-powered learning and productivity platform. ACE AI provides intelligent tutoring, content creation, and professional development tools powered by DeepSeek AI.
 

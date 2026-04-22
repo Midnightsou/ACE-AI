@@ -1,4 +1,5 @@
 import { useRef } from 'react'
+import { useAutoResize } from '../../hooks/useAutoResize'
 import { useEmailStore } from '../../store/emailStore'
 import { useTool } from '../../hooks/useTool'
 import { useEmailChat } from '../../hooks/useEmailChat'
@@ -33,7 +34,12 @@ export default function EmailComposer() {
     liveOutput, setLiveOutput,
     reset,
   } = useEmailStore()
-
+  const purposeRef = useRef(null)
+  const keyPointsRef = useRef(null)
+  const contextRef = useRef(null)
+  useAutoResize(purposeRef, form.purpose)
+  useAutoResize(keyPointsRef, form.keyPoints)
+  useAutoResize(contextRef, form.context)
   const { streaming, loading, error, generate } = useTool('email-composer')
   const user = useUserStore((s) => s.user)
   const chat = useEmailChat((updated) => setLiveOutput(updated))
@@ -85,6 +91,7 @@ export default function EmailComposer() {
                 <span className="ml-1 normal-case text-zinc-400">— what is this email for?</span>
               </label>
               <textarea
+                ref={purposeRef}
                 value={form.purpose}
                 onChange={(e) => updateForm('purpose', e.target.value)}
                 placeholder="e.g. Follow up on a job application I sent last week"
@@ -115,6 +122,7 @@ export default function EmailComposer() {
                 Key points to cover
               </label>
               <textarea
+                ref={keyPointsRef}
                 value={form.keyPoints}
                 onChange={(e) => updateForm('keyPoints', e.target.value)}
                 placeholder={`e.g.\n- Applied for the Senior Developer role on Monday\n- Haven't heard back in 5 days\n- Asking for a status update\n- Available for interview any time this week`}
@@ -217,6 +225,7 @@ export default function EmailComposer() {
                 <span className="ml-1 normal-case text-zinc-400">(optional)</span>
               </label>
               <textarea
+                ref={contextRef}
                 value={form.context}
                 onChange={(e) => updateForm('context', e.target.value)}
                 placeholder="Any extra details Ace should know..."

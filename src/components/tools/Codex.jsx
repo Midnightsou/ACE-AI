@@ -1,7 +1,9 @@
 import { useState, useEffect, useRef } from 'react'
 import { useCodex } from '../../hooks/useCodex'
+import { useCodexStore } from '../../store/codexStore'
 import { useToolStore } from '../../store/toolStore'
 import CodexMessage from './CodexMessage'
+import ToolMessageBubble from './ToolMessageBubble'
 import { getToolById } from '../../tools/registry'
 
 const tool = getToolById('codex')
@@ -44,6 +46,7 @@ export default function Codex() {
     startNewSession,
   } = useCodex()
 
+  const truncateFrom = useCodexStore((s) => s.truncateFrom)
   const setActiveTool = useToolStore((s) => s.setActiveTool)
   const [input, setInput] = useState('')
   const [showLangPicker, setShowLangPicker] = useState(false)
@@ -65,6 +68,11 @@ export default function Codex() {
       e.preventDefault()
       handleSend()
     }
+  }
+
+  function handleEdit(index, newContent) {
+    truncateFrom(index)
+    send(newContent)
   }
 
   const currentLanguageLabel = LANGUAGE_OPTIONS.find(l => l.value === language)?.label || 'Auto'
@@ -170,7 +178,17 @@ export default function Codex() {
 
         {/* Message list */}
         {messages.map((msg, i) => (
-          <CodexMessage key={i} message={msg} isStreaming={false} />
+          msg.role === 'user' ? (
+            <ToolMessageBubble
+              key={i}
+              message={msg}
+              index={i}
+              isUser={true}
+              onEdit={handleEdit}
+            />
+          ) : (
+            <CodexMessage key={i} message={msg} isStreaming={false} />
+          )
         ))}
 
         {/* Streaming message */}

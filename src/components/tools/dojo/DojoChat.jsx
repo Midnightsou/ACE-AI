@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { useAutoResize } from '../../../hooks/useAutoResize'
 import { useDojo } from '../../../hooks/useDojo'
 import { useDojoStore } from '../../../store/dojoStore'
 
@@ -15,6 +16,7 @@ export default function DojoChat() {
   const [input, setInput] = useState('')
   const bottomRef = useRef(null)
   const inputRef = useRef(null)
+  useAutoResize(inputRef, input)
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -24,6 +26,7 @@ export default function DojoChat() {
     if (!input.trim() || loading) return
     sendMessage(input.trim())
     setInput('')
+    if (inputRef.current) inputRef.current.style.height = 'auto'
   }
 
   function handleKeyDown(e) {

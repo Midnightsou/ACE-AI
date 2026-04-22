@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 
-export const useChatStore = create((set, get) => ({
+export const useChatStore = create((set) => ({
   messages: [],
   loading: false,
   streamingContent: '',
@@ -11,14 +11,10 @@ export const useChatStore = create((set, get) => ({
     })),
 
   setMessages: (messages) => set({ messages }),
-
   setLoading: (loading) => set({ loading }),
-
   setStreamingContent: (content) => set({ streamingContent: content }),
-
   clearStreaming: () => set({ streamingContent: '' }),
 
-  // Called when streaming is done — finalizes the message
   finalizeStreamingMessage: () =>
     set((state) => {
       if (!state.streamingContent) return state
@@ -30,6 +26,18 @@ export const useChatStore = create((set, get) => ({
         streamingContent: '',
       }
     }),
+
+  editMessage: (index, newContent) =>
+    set((state) => {
+      const messages = [...state.messages]
+      messages[index] = { ...messages[index], content: newContent }
+      return { messages }
+    }),
+
+  truncateFrom: (index) =>
+    set((state) => ({
+      messages: state.messages.slice(0, index),
+    })),
 
   clearMessages: () => set({ messages: [], streamingContent: '' }),
 }))

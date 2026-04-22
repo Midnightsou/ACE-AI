@@ -7,6 +7,8 @@ import { useAuth } from '../../hooks/useAuth'
 import { useToolStore } from '../../store/toolStore'
 import { tools, toolCategories } from '../../tools/registry'
 import { loadConversations } from '../../services/memory'
+import { useCodex } from '../../hooks/useCodex'
+import { useMathMode } from '../../hooks/useMathMode'
 
 export default function Sidebar({ isOpen, onClose }) {
   const user = useUserStore((s) => s.user)
@@ -21,7 +23,10 @@ export default function Sidebar({ isOpen, onClose }) {
     setActiveConversationId,
   } = useConversationStore()
   const clearMessages = useChatStore((s) => s.clearMessages)
+  const codex = useCodex()
+  const math = useMathMode()
   const [showTools, setShowTools] = useState(true)
+  const [showRecents, setShowRecents] = useState(true)
 
   useEffect(() => {
     if (!user?.uid) return
@@ -36,10 +41,24 @@ export default function Sidebar({ isOpen, onClose }) {
     onClose()
   }
 
-  function handleSelectConversation(id) {
-    setActiveTool('chat')
-    setActiveConversationId(id)
-    navigate('/chat')
+  function handleSelectConversation(convo) {
+    const isTool = convo.type === 'tool'
+
+    if (isTool) {
+      setActiveTool(convo.toolId)
+
+      // Load session history for tool
+      if (convo.toolId === 'codex') {
+        codex.loadSession(convo.id)
+      } else if (convo.toolId === 'math') {
+        math.loadSession(convo.id)
+      }
+
+      navigate(`/tool/${convo.toolId}`)
+    } else {
+      setActiveConversationId(convo.id)
+      navigate('/chat')
+    }
     onClose()
   }
 
@@ -121,48 +140,51 @@ export default function Sidebar({ isOpen, onClose }) {
             </button>
           </div>
 
-          {/* Recent conversations + tool sessions */}
+          {/* Recent conversations */}
           <div className="px-3 pb-3">
-            <p className="text-xs text-zinc-500 px-2 py-1.5 uppercase tracking-wider">
-              Recent
-            </p>
+            <button
+              onClick={() => setShowRecents((v) => !v)}
+              className="w-full flex items-center justify-between px-2 py-1.5 text-xs text-zinc-500 hover:text-zinc-300 transition-colors uppercase tracking-wider"
+            >
+              <span>Recent chats</span>
+              <svg
+                width="12" height="12"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                className={`transition-transform duration-200 ${showRecents ? 'rotate-180' : ''}`}
+              >
+                <path d="M6 9l6 6 6-6"/>
+              </svg>
+            </button>
 
-            {conversations.length === 0 ? (
-              <p className="text-xs text-zinc-600 px-2 py-2">
-                No history yet.
-              </p>
-            ) : (
-              <div className="flex flex-col gap-0.5">
-                {conversations.map((convo) => {
-                  const isTool = convo.type === 'tool'
-
-                  return (
-                    <button
-                      key={convo.id}
-                      onClick={() => {
-                        if (isTool) {
-                          setActiveTool(convo.toolId)
-                          navigate(`/tool/${convo.toolId}`)
-                        } else {
-                          handleSelectConversation(convo.id)
-                        }
-                        onClose()
-                      }}
-                      className={`w-full text-left px-3 py-2 rounded-xl text-sm transition-colors flex items-center gap-2 min-w-0
-                        ${(isTool && activeTool === convo.toolId) || (!isTool && activeConversationId === convo.id && activeTool === 'chat')
-                          ? 'bg-violet-600 text-white'
-                          : 'text-zinc-400 hover:bg-zinc-800 hover:text-white'
-                        }`}
-                    >
-                      {isTool && (
-                        <span className="text-sm flex-shrink-0">{convo.icon}</span>
-                      )}
-                      <span className="truncate text-xs">
-                        {convo.title || (isTool ? convo.toolName : 'New chat')}
-                      </span>
-                    </button>
-                  )
-                })}
+            {showRecents && (
+              <div className="flex flex-col gap-0.5 mt-1">
+                {conversations.length === 0 ? (
+                  <p className="text-xs text-zinc-600 px-2 py-2">No conversations yet.</p>
+                ) : (
+                  conversations.map((convo) => {
+                    const isTool = convo.type === 'tool'
+                    return (
+                      <button
+                        key={convo.id}
+                        onClick={() => handleSelectConversation(convo)}
+                        className={`w-full text-left px-3 py-2 rounded-xl text-sm transition-colors flex items-center gap-2 min-w-0
+                          ${(isTool && activeTool === convo.toolId) || (!isTool && activeConversationId === convo.id && activeTool === 'chat')
+                            ? 'bg-violet-600 text-white'
+                            : 'text-zinc-400 hover:bg-zinc-800 hover:text-white'
+                          }`}
+                      >
+                        {isTool && <span className="text-sm flex-shrink-0">{convo.icon}</span>}
+                        <span className="truncate text-xs">
+                          {convo.title || (isTool ? convo.toolName : 'New chat')}
+                        </span>
+                      </button>
+                    )
+                  })
+                )}
               </div>
             )}
           </div>

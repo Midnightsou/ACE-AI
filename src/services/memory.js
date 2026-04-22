@@ -167,6 +167,28 @@ export async function loadMessages(uid, conversationId, limitCount = 50) {
 }
 
 /* ─────────────────────────────
+   TOOL MESSAGES
+───────────────────────────── */
+
+export async function saveToolMessage(uid, sessionId, message) {
+  const ref = collection(db, 'students', uid, 'conversations', sessionId, 'messages')
+  await addDoc(ref, {
+    role: message.role,
+    content: message.content,
+    createdAt: serverTimestamp(),
+  })
+  const convoRef = doc(db, 'students', uid, 'conversations', sessionId)
+  await updateDoc(convoRef, { updatedAt: serverTimestamp() })
+}
+
+export async function loadToolMessages(uid, sessionId) {
+  const ref = collection(db, 'students', uid, 'conversations', sessionId, 'messages')
+  const q = query(ref, orderBy('createdAt', 'asc'), limit(100))
+  const snap = await getDocs(q)
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+}
+
+/* ─────────────────────────────
    FREEMIUM MESSAGE COUNT
 ───────────────────────────── */
 

@@ -4,7 +4,8 @@ import {
   signInWithEmailAndPassword,
   signInWithPopup,
   signOut,
-  onAuthStateChanged
+  onAuthStateChanged,
+  sendPasswordResetEmail,
 } from 'firebase/auth'
 import { doc, setDoc, getDoc } from 'firebase/firestore'
 import { auth, db, googleProvider } from '../services/firebase'
@@ -80,5 +81,9 @@ export function useAuth() {
     return signOut(auth)
   }
 
-  return { user, loading, signup, login, loginWithGoogle, logout }
+  async function forgotPassword(email) {
+    await sendPasswordResetEmail(auth, email)
+  }
+
+  return { user, loading, signup, login, loginWithGoogle, logout, forgotPassword }
 }

@@ -1,6 +1,9 @@
 import { useState, useEffect, useRef } from 'react'
 import { useMathMode } from '../../hooks/useMathMode'
+import { useMathStore } from '../../store/mathStore'
+import { useAutoResize } from '../../hooks/useAutoResize'
 import MathMessage from './MathMessage'
+import ToolMessageBubble from './ToolMessageBubble'
 import 'katex/dist/katex.min.css'
 
 const QUICK_PROBLEMS = [
@@ -17,10 +20,12 @@ const QUICK_PROBLEMS = [
 
 export default function MathMode() {
   const { messages, streamingContent, send, clearMessages } = useMathMode()
+  const truncateFrom = useMathStore((s) => s.truncateFrom)
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const bottomRef = useRef(null)
   const inputRef = useRef(null)
+  useAutoResize(inputRef, input)
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -30,6 +35,7 @@ export default function MathMode() {
     if (!input.trim() || loading) return
     const text = input.trim()
     setInput('')
+    if (inputRef.current) inputRef.current.style.height = 'auto'
     setLoading(true)
     await send(text)
     setLoading(false)
@@ -40,6 +46,11 @@ export default function MathMode() {
       e.preventDefault()
       handleSend()
     }
+  }
+
+  function handleEdit(index, newContent) {
+    truncateFrom(index)
+    send(newContent)
   }
 
   return (
@@ -99,7 +110,17 @@ export default function MathMode() {
         )}
 
         {messages.map((msg, i) => (
-          <MathMessage key={i} message={msg} isStreaming={false} />
+          msg.role === 'user' ? (
+            <ToolMessageBubble
+              key={i}
+              message={msg}
+              index={i}
+              isUser={true}
+              onEdit={handleEdit}
+            />
+          ) : (
+            <MathMessage key={i} message={msg} isStreaming={false} />
+          )
         ))}
 
         {streamingContent && (

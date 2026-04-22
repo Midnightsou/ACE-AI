@@ -19,8 +19,17 @@ export default function ChatWindow() {
   const { messages, loading, send, fileContext, attachFile, clearFile, streamingContent } = useChat()
   const user = useUserStore((s) => s.user)
   const bottomRef = useRef(null)
+  const editMessage = useChatStore((s) => s.editMessage)
+  const truncateFrom = useChatStore((s) => s.truncateFrom)
 
   const language = user?.profile?.language || 'english'
+
+  async function handleEdit(index, newContent) {
+    // Truncate messages from this index (removes the old message + all after it)
+    truncateFrom(index)
+    // Resend as a new message
+    send(newContent)
+  }
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -51,7 +60,7 @@ export default function ChatWindow() {
         {messages.length === 0 && (
           <div className="flex flex-col items-center justify-center h-full text-center gap-3 pb-12">
             <div className="w-14 h-14 bg-violet-100 rounded-2xl flex items-center justify-center">
-              <span className="text-2xl">👋</span>
+              <span className="text-2xl">ACE</span>
             </div>
             <div>
               <p className="font-semibold text-zinc-800">Hey {name}!</p>
@@ -63,7 +72,8 @@ export default function ChatWindow() {
               {[
                 'Solve x² + 5x + 6 = 0',
                 'Explain photosynthesis simply',
-                'Give me 5 JAMB English tips',
+                'What is the capital of France?',
+                'Who wrote "To Kill a Mockingbird"?',
               ].map((prompt) => (
                 <button
                   key={prompt}
@@ -78,7 +88,12 @@ export default function ChatWindow() {
         )}
 
         {messages.map((msg, i) => (
-          <MessageBubble key={i} message={msg} />
+          <MessageBubble
+            key={i}
+            message={msg}
+            index={i}
+            onEdit={handleEdit}
+          />
         ))}
 
         {streamingContent

@@ -1,20 +1,30 @@
 import { useMathStore } from '../store/mathStore'
 import { useUserStore } from '../store/userStore'
 import { buildMathSystemPrompt } from '../prompts/tools/mathPrompt'
-import { saveToolSession } from '../services/memory'
+import { saveToolSession, saveToolMessage, loadToolMessages } from '../services/memory'
 
 const BASE_URL = 'https://api.featherless.ai/v1/chat/completions'
 
 export function useMathMode() {
   const {
-    messages,
-    streamingContent,
-    addMessage,
-    setStreamingContent,
-    clearMessages,
+    messages, sessionId, streamingContent,
+    addMessage, setMessages, setStreamingContent,
+    setSessionId, clearMessages,
   } = useMathStore()
 
   const user = useUserStore((s) => s.user)
+
+  async function loadSession(sid) {
+    if (!user?.uid || !sid) return
+    clearMessages()
+    setSessionId(sid)
+    try {
+      const msgs = await loadToolMessages(user.uid, sid)
+      setMessages(msgs)
+    } catch (err) {
+      console.error('Failed to load math session:', err)
+    }
+  }
 
   async function send(text) {
     if (!text.trim()) return
@@ -26,6 +36,21 @@ export function useMathMode() {
     const apiKey = import.meta.env.VITE_FEATHERLESS_API_KEY
 
     try {
+      let currentSessionId = sessionId
+
+      if (!currentSessionId && user?.uid) {
+        currentSessionId = await saveToolSession(
+          user.uid, 'math', 'Math Mode',
+          `Math — ${text.slice(0, 40)}${text.length > 40 ? '...' : ''}`,
+          '🧮'
+        )
+        setSessionId(currentSessionId)
+      }
+
+      if (user?.uid && currentSessionId) {
+        await saveToolMessage(user.uid, currentSessionId, userMessage)
+      }
+
       const history = [...messages, userMessage]
 
       const response = await fetch(BASE_URL, {
@@ -71,17 +96,17 @@ export function useMathMode() {
         }
       }
 
-      addMessage({ role: 'assistant', content: fullContent })
+      const assistantMessage = { role: 'assistant', content: fullContent }
+      addMessage(assistantMessage)
       setStreamingContent('')
 
-      if (user?.uid) {
+      if (user?.uid && currentSessionId) {
+        await saveToolMessage(user.uid, currentSessionId, assistantMessage)
         await saveToolSession(
-          user.uid,
-          'math',
-          'Math Mode',
+          user.uid, 'math', 'Math Mode',
           `Math — ${text.slice(0, 40)}${text.length > 40 ? '...' : ''}`,
           '🧮'
-        ).catch(() => { })
+        )
       }
 
     } catch (err) {
@@ -96,9 +121,7 @@ export function useMathMode() {
   }
 
   return {
-    messages,
-    streamingContent,
-    send,
-    clearMessages,
+    messages, streamingContent,
+    send, clearMessages, loadSession,
   }
 }

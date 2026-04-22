@@ -5,13 +5,18 @@ import Button from '../components/ui/Button'
 import Input from '../components/ui/Input'
 
 export default function LoginPage() {
-  const { login, loginWithGoogle } = useAuth()
+  const { login, loginWithGoogle, forgotPassword } = useAuth()
   const navigate = useNavigate()
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [showForgot, setShowForgot] = useState(false)
+  const [forgotEmail, setForgotEmail] = useState('')
+  const [forgotSent, setForgotSent] = useState(false)
+  const [forgotLoading, setForgotLoading] = useState(false)
+  const [forgotError, setForgotError] = useState('')
 
   async function handleLogin(e) {
     e.preventDefault()
@@ -37,6 +42,25 @@ export default function LoginPage() {
       setError(getErrorMessage(err.code))
     } finally {
       setLoading(false)
+    }
+  }
+
+  async function handleForgotPassword(e) {
+    e.preventDefault()
+    if (!forgotEmail.trim()) return
+    setForgotLoading(true)
+    setForgotError('')
+    try {
+      await forgotPassword(forgotEmail.trim())
+      setForgotSent(true)
+    } catch (err) {
+      setForgotError(
+        err.code === 'auth/user-not-found'
+          ? 'No account with that email.'
+          : 'Failed to send reset email. Try again.'
+      )
+    } finally {
+      setForgotLoading(false)
     }
   }
 
@@ -90,11 +114,89 @@ export default function LoginPage() {
         </form>
 
         <p className="text-center text-sm text-zinc-500 mt-4">
+          <button
+            onClick={() => setShowForgot(true)}
+            className="text-violet-600 font-medium hover:underline"
+          >
+            Forgot password?
+          </button>
+        </p>
+
+        <p className="text-center text-sm text-zinc-500 mt-4">
           No account?{' '}
           <Link to="/signup" className="text-violet-600 font-medium hover:underline">
             Sign up free
           </Link>
         </p>
+
+        {/* Forgot Password Modal */}
+        {showForgot && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-2xl p-6 w-full max-w-sm">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-semibold text-zinc-900">Reset Password</h2>
+                <button
+                  onClick={() => {
+                    setShowForgot(false)
+                    setForgotSent(false)
+                    setForgotError('')
+                    setForgotEmail('')
+                  }}
+                  className="text-zinc-400 hover:text-zinc-600"
+                >
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M18 6L6 18M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              {forgotSent ? (
+                <div className="text-center">
+                  <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2">
+                      <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                      <polyline points="22,4 12,14.01 9,11.01" />
+                    </svg>
+                  </div>
+                  <h3 className="text-lg font-semibold text-zinc-900 mb-2">Check your email</h3>
+                  <p className="text-sm text-zinc-600 mb-4">
+                    We've sent a password reset link to {forgotEmail}
+                  </p>
+                  <Button onClick={() => {
+                    setShowForgot(false)
+                    setForgotSent(false)
+                    setForgotEmail('')
+                  }}>
+                    Back to login
+                  </Button>
+                </div>
+              ) : (
+                <form onSubmit={handleForgotPassword} className="flex flex-col gap-4">
+                  <p className="text-sm text-zinc-600">
+                    Enter your email address and we'll send you a link to reset your password.
+                  </p>
+
+                  <Input
+                    label="Email"
+                    type="email"
+                    value={forgotEmail}
+                    onChange={(e) => setForgotEmail(e.target.value)}
+                    placeholder="you@email.com"
+                    required
+                  />
+
+                  {forgotError && (
+                    <p className="text-sm text-red-500 bg-red-50 px-3 py-2 rounded-lg">{forgotError}</p>
+                  )}
+
+                  <Button type="submit" disabled={forgotLoading}>
+                    {forgotLoading ? 'Sending...' : 'Send reset link'}
+                  </Button>
+                </form>
+              )}
+            </div>
+          </div>
+        )}
 
       </div>
     </div>

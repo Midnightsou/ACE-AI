@@ -1,7 +1,6 @@
 import { create } from 'zustand'
 
 export const useToolHistoryStore = create((set, get) => ({
-  // { [toolId]: [outputs] }
   histories: {},
   loading: {},
 

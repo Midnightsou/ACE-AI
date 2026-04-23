@@ -13,11 +13,12 @@ import { useDojoStore } from './store/dojoStore'
 import AppRouter from './router'
 import SplashScreen from './components/SplashScreen'
 import { useState } from 'react'
+import { useThemeStore } from './store/themeStore'
 
 export default function App() {
   const { user } = useAuth()
   const setUser = useUserStore((s) => s.setUser)
-
+  const theme = useThemeStore((s) => s.theme)
   const clearMessages = useChatStore((s) => s.clearMessages)
   const clearConversations = useConversationStore((s) => s.clearConversations)
   const resetCVMaker = useCVMakerStore((s) => s.reset)
@@ -48,6 +49,10 @@ export default function App() {
     clearMath()
     clearDojo()
   }, [user?.uid]) // key on uid specifically — fires when account switches
+
+  useEffect(() => {
+    document.documentElement.classList.toggle('dark', theme === 'dark')
+  }, [theme])
 
   function handleSplashComplete() {
     sessionStorage.setItem('splashShown', 'true')

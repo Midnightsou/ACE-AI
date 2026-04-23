@@ -7,6 +7,7 @@ import TypingIndicator from './TypingIndicator'
 import InputBar from './InputBar'
 import FileContextBanner from './FileContextBanner'
 import StreamingBubble from './StreamingBubble'
+import ThemeToggle from '../ui/ThemeToggle'
 
 const languageLabels = {
   english: 'English',
@@ -49,6 +50,7 @@ export default function ChatWindow() {
           <p className="text-sm font-semibold text-zinc-900">Ace</p>
           <p className="text-xs text-zinc-400">{languageLabels[language]} mode</p>
         </div>
+        <ThemeToggle className="ml-auto" />
       </div>
 
       {/* File context banner */}

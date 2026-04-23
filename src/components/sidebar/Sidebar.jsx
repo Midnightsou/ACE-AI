@@ -5,10 +5,15 @@ import { useUserStore } from '../../store/userStore'
 import { useChatStore } from '../../store/chatStore'
 import { useAuth } from '../../hooks/useAuth'
 import { useToolStore } from '../../store/toolStore'
+import { useCodexStore } from '../../store/codexStore'
+import { useMathStore } from '../../store/mathStore'
+import { useCVMakerStore, useCVAnalyserStore } from '../../store/cvStore'
+import { useCoverLetterStore } from '../../store/coverLetterStore'
+import { useEssayStore } from '../../store/essayStore'
+import { useEmailStore } from '../../store/emailStore'
+import { useDojoStore } from '../../store/dojoStore'
 import { tools, toolCategories } from '../../tools/registry'
-import { loadConversations } from '../../services/memory'
-import { useCodex } from '../../hooks/useCodex'
-import { useMathMode } from '../../hooks/useMathMode'
+import { loadConversations, loadToolMessages } from '../../services/memory'
 
 export default function Sidebar({ isOpen, onClose }) {
   const user = useUserStore((s) => s.user)
@@ -23,10 +28,8 @@ export default function Sidebar({ isOpen, onClose }) {
     setActiveConversationId,
   } = useConversationStore()
   const clearMessages = useChatStore((s) => s.clearMessages)
-  const codex = useCodex()
-  const math = useMathMode()
-  const [showTools, setShowTools] = useState(true)
   const [showRecents, setShowRecents] = useState(true)
+  const [showTools, setShowTools] = useState(true)
 
   useEffect(() => {
     if (!user?.uid) return
@@ -35,27 +38,53 @@ export default function Sidebar({ isOpen, onClose }) {
       .catch((err) => console.error('Failed to load conversations:', err))
   }, [user?.uid])
 
+  function clearToolStore(toolId) {
+    const map = {
+      'codex': () => useCodexStore.getState().clearMessages(),
+      'math': () => useMathStore.getState().clearMessages(),
+      'cv-maker': () => useCVMakerStore.getState().reset(),
+      'cv-analyser': () => useCVAnalyserStore.getState().reset(),
+      'cover-letter': () => useCoverLetterStore.getState().reset(),
+      'essay-writer': () => useEssayStore.getState().reset(),
+      'email-composer': () => useEmailStore.getState().reset(), 
+      'dojo': () => useDojoStore.getState().clearSession(),
+    }
+    map[toolId]?.()
+  }
+
+  async function loadToolSession(toolId, sessionId) {
+    if (!user?.uid || !sessionId) return
+    try {
+      const msgs = await loadToolMessages(user.uid, sessionId)
+      if (toolId === 'codex') {
+        useCodexStore.getState().setMessages(msgs)
+        useCodexStore.getState().setSessionId(sessionId)
+      } else if (toolId === 'math') {
+        useMathStore.getState().setMessages(msgs)
+        useMathStore.getState().setSessionId(sessionId)
+      }
+    } catch (err) {
+      console.error('Failed to load tool session:', err)
+    }
+  }
+
   function handleSelectTool(tool) {
     setActiveTool(tool.id)
+    clearToolStore(tool.id)
     navigate(tool.path)
     onClose()
   }
 
-  function handleSelectConversation(convo) {
+  async function handleSelectConversation(convo) {
     const isTool = convo.type === 'tool'
 
     if (isTool) {
       setActiveTool(convo.toolId)
-
-      // Load session history for tool
-      if (convo.toolId === 'codex') {
-        codex.loadSession(convo.id)
-      } else if (convo.toolId === 'math') {
-        math.loadSession(convo.id)
-      }
-
+      clearToolStore(convo.toolId)
+      await loadToolSession(convo.toolId, convo.id)
       navigate(`/tool/${convo.toolId}`)
     } else {
+      setActiveTool('chat')
       setActiveConversationId(convo.id)
       navigate('/chat')
     }
@@ -72,7 +101,6 @@ export default function Sidebar({ isOpen, onClose }) {
 
   return (
     <>
-      {/* Overlay */}
       {isOpen && (
         <div
           className="fixed inset-0 bg-black/30 z-20 md:hidden"
@@ -80,7 +108,6 @@ export default function Sidebar({ isOpen, onClose }) {
         />
       )}
 
-      {/* Sidebar */}
       <div
         className={`fixed top-0 left-0 h-full w-72 bg-zinc-900 z-30 flex flex-col transition-transform duration-300
           ${isOpen ? 'translate-x-0' : '-translate-x-full'}
@@ -99,12 +126,12 @@ export default function Sidebar({ isOpen, onClose }) {
             className="text-zinc-400 hover:text-white transition-colors md:hidden"
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-              <path d="M18 6L6 18M6 6l12 12" />
+              <path d="M18 6L6 18M6 6l12 12"/>
             </svg>
           </button>
         </div>
 
-        {/* Scrollable content */}
+        {/* Scrollable */}
         <div className="flex-1 overflow-y-auto">
 
           {/* New chat */}
@@ -114,13 +141,13 @@ export default function Sidebar({ isOpen, onClose }) {
               className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl border border-zinc-700 hover:bg-zinc-800 transition-colors text-sm text-zinc-300 hover:text-white"
             >
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                <path d="M12 5v14M5 12h14" />
+                <path d="M12 5v14M5 12h14"/>
               </svg>
               New chat
             </button>
           </div>
 
-          {/* Tools page button */}
+          {/* All tools button */}
           <div className="px-3 pb-2">
             <button
               onClick={() => { navigate('/tools'); onClose() }}
@@ -131,10 +158,10 @@ export default function Sidebar({ isOpen, onClose }) {
                 }`}
             >
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                <rect x="3" y="3" width="7" height="7" rx="1" />
-                <rect x="14" y="3" width="7" height="7" rx="1" />
-                <rect x="3" y="14" width="7" height="7" rx="1" />
-                <rect x="14" y="14" width="7" height="7" rx="1" />
+                <rect x="3" y="3" width="7" height="7" rx="1"/>
+                <rect x="14" y="3" width="7" height="7" rx="1"/>
+                <rect x="3" y="14" width="7" height="7" rx="1"/>
+                <rect x="14" y="14" width="7" height="7" rx="1"/>
               </svg>
               All tools
             </button>
@@ -146,7 +173,7 @@ export default function Sidebar({ isOpen, onClose }) {
               onClick={() => setShowRecents((v) => !v)}
               className="w-full flex items-center justify-between px-2 py-1.5 text-xs text-zinc-500 hover:text-zinc-300 transition-colors uppercase tracking-wider"
             >
-              <span>Recent chats</span>
+              <span>Recent</span>
               <svg
                 width="12" height="12"
                 viewBox="0 0 24 24"
@@ -163,21 +190,27 @@ export default function Sidebar({ isOpen, onClose }) {
             {showRecents && (
               <div className="flex flex-col gap-0.5 mt-1">
                 {conversations.length === 0 ? (
-                  <p className="text-xs text-zinc-600 px-2 py-2">No conversations yet.</p>
+                  <p className="text-xs text-zinc-600 px-2 py-2">No history yet.</p>
                 ) : (
                   conversations.map((convo) => {
                     const isTool = convo.type === 'tool'
+                    const isActive = isTool
+                      ? activeTool === convo.toolId
+                      : activeConversationId === convo.id && activeTool === 'chat'
+
                     return (
                       <button
                         key={convo.id}
                         onClick={() => handleSelectConversation(convo)}
                         className={`w-full text-left px-3 py-2 rounded-xl text-sm transition-colors flex items-center gap-2 min-w-0
-                          ${(isTool && activeTool === convo.toolId) || (!isTool && activeConversationId === convo.id && activeTool === 'chat')
+                          ${isActive
                             ? 'bg-violet-600 text-white'
                             : 'text-zinc-400 hover:bg-zinc-800 hover:text-white'
                           }`}
                       >
-                        {isTool && <span className="text-sm flex-shrink-0">{convo.icon}</span>}
+                        {isTool && (
+                          <span className="text-sm flex-shrink-0">{convo.icon}</span>
+                        )}
                         <span className="truncate text-xs">
                           {convo.title || (isTool ? convo.toolName : 'New chat')}
                         </span>
@@ -191,26 +224,28 @@ export default function Sidebar({ isOpen, onClose }) {
         </div>
 
         {/* Bottom */}
-        <div className="flex-shrink-0 border-t border-zinc-800">
-          <button
-            onClick={() => { navigate('/profile'); onClose() }}
-            className="flex items-center gap-3 px-2 py-2 rounded-xl hover:bg-zinc-800 transition-colors w-full text-left"
-          >
-            <div className="w-8 h-8 rounded-full bg-zinc-700 flex items-center justify-center text-zinc-300 text-xs font-bold flex-shrink-0">
-              {user?.profile?.name?.[0]?.toUpperCase() || user?.email?.[0]?.toUpperCase() || 'U'}
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm text-white truncate">
-                {user?.profile?.name || 'User'}
-              </p>
-              <p className="text-xs text-zinc-500 truncate">{user?.email}</p>
-            </div>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#71717a" strokeWidth="2" strokeLinecap="round">
-              <path d="M9 18l6-6-6-6" />
-            </svg>
-          </button>
+        <div className="flex-shrink-0">
+          {/* User info */}
+          <div className="p-3 border-t border-zinc-800">
+            <button
+              onClick={() => { navigate('/profile'); onClose() }}
+              className="flex items-center gap-3 px-2 py-2 rounded-xl hover:bg-zinc-800 transition-colors w-full text-left"
+            >
+              <div className="w-8 h-8 rounded-full bg-zinc-700 flex items-center justify-center text-zinc-300 text-xs font-bold flex-shrink-0">
+                {user?.profile?.name?.[0]?.toUpperCase() || user?.email?.[0]?.toUpperCase() || 'U'}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm text-white truncate">
+                  {user?.profile?.name || 'User'}
+                </p>
+                <p className="text-xs text-zinc-500 truncate">{user?.email}</p>
+              </div>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#71717a" strokeWidth="2" strokeLinecap="round">
+                <path d="M9 18l6-6-6-6"/>
+              </svg>
+            </button>
+          </div>
         </div>
-
       </div>
     </>
   )

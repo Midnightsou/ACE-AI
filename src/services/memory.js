@@ -82,24 +82,7 @@ export async function loadConversations(uid, limitCount = 30) {
 export async function saveToolSession(uid, toolId, toolName, preview, icon) {
   const ref = collection(db, 'students', uid, 'conversations')
 
-  const existing = query(
-    ref,
-    where('type', '==', 'tool'),
-    where('toolId', '==', toolId),
-    limit(1)
-  )
-
-  const snap = await getDocs(existing)
-
-  if (!snap.empty) {
-    const docRef = snap.docs[0].ref
-    await updateDoc(docRef, {
-      title: preview,
-      updatedAt: serverTimestamp(),
-    })
-    return snap.docs[0].id
-  }
-
+  // Always create a new session — never overwrite existing ones
   const newDoc = await addDoc(ref, {
     type: 'tool',
     toolId,

@@ -2,13 +2,19 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { tools, toolCategories } from '../tools/registry'
 import { useToolStore } from '../store/toolStore'
+import { useCodexStore } from '../store/codexStore'
+import { useMathStore } from '../store/mathStore'
+import { useCVMakerStore, useCVAnalyserStore } from '../store/cvStore'
+import { useCoverLetterStore } from '../store/coverLetterStore'
+import { useEssayStore } from '../store/essayStore'
+import { useEmailStore } from '../store/emailStore'
+import { useDojoStore } from '../store/dojoStore'
 import Sidebar from '../components/sidebar/Sidebar'
 
 const categoryIcons = {
   general: '⚡',
   productivity: '📋',
   technical: '🛠',
-  creative: '🎨',
   business: '💼',
 }
 
@@ -26,6 +32,20 @@ export default function ToolsPage() {
 
   function handleSelectTool(tool) {
     setActiveTool(tool.id)
+
+    // Clear relevant store before navigating
+    const storeClearMap = {
+      'codex': () => useCodexStore.getState().clearMessages(),
+      'math': () => useMathStore.getState().clearMessages(),
+      'cv-maker': () => useCVMakerStore.getState().reset(),
+      'cv-analyser': () => useCVAnalyserStore.getState().reset(),
+      'cover-letter': () => useCoverLetterStore.getState().reset(),
+      'essay-writer': () => useEssayStore.getState().reset(),
+      'email-composer': () => useEmailStore.getState().reset(),
+      'dojo': () => useDojoStore.getState().clearSession(),
+    }
+    storeClearMap[tool.id]?.()
+
     navigate(tool.path)
   }
 

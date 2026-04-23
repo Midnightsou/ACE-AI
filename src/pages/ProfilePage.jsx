@@ -6,6 +6,7 @@ import { updateProfile } from '../services/memory'
 import Sidebar from '../components/sidebar/Sidebar'
 import { updatePassword, EmailAuthProvider, reauthenticateWithCredential } from 'firebase/auth'
 import { auth } from '../services/firebase'
+import ThemeToggle from '../components/ui/ThemeToggle'
 
 const languages = [
   { code: 'english', label: 'English', flag: '🇬🇧' },
@@ -102,6 +103,7 @@ export default function ProfilePage() {
       <div className="flex flex-col flex-1 min-w-0 bg-zinc-50">
 
         {/* Header */}
+        <ThemeToggle />
         <div className="flex items-center gap-3 px-5 py-4 border-b border-zinc-100 bg-white flex-shrink-0">
           <button
             onClick={() => setSidebarOpen(true)}

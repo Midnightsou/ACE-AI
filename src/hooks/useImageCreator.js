@@ -8,7 +8,7 @@ import {
 } from '../prompts/tools/imagePrompt'
 import { saveToolSession } from '../services/memory'
 
-const FEATHERLESS_URL = 'https://api.featherless.ai/v1/chat/completions'
+const FEATHERLESS_URL = 'https://api.deepseek.com/v1/chat/completions'
 const HF_URL = 'https://router.huggingface.co/hf-inference/models/black-forest-labs/FLUX.1-schnell/v1/images/generations'
 
 async function enhancePrompt(userPrompt, style) {

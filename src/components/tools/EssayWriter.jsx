@@ -45,7 +45,7 @@ const CHAT_SUGGESTIONS = [
 
 const STEPS = ['Topic', 'Word Count', 'Essay Type', 'Writing Style', 'References']
 
-const BASE_URL = 'https://api.featherless.ai/v1/chat/completions'
+const BASE_URL = 'https://api.deepseek.com/v1/chat/completions'
 
 async function streamText(systemPrompt, userPrompt, onChunk) {
   const apiKey = import.meta.env.VITE_FEATHERLESS_API_KEY

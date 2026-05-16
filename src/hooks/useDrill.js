@@ -1,28 +1,31 @@
 import { useState } from 'react'
 import { useUserStore } from '../store/userStore'
-import { buildDrillPrompt, buildEvaluationPrompt, parseDrillQuestion, parseEvaluation } from '../prompts/drillPrompt'
+import {
+  buildDrillPrompt,
+  buildEvaluationPrompt,
+  parseDrillQuestion,
+  parseEvaluation,
+} from '../prompts/drillPrompt'
 import { saveDrillResult } from '../services/drill'
 
-const BASE_URL = 'https://api.featherless.ai/v1/chat/completions'
+import {
+  complete,
+  MODELS,
+} from '../services/deepseekClient'
 
 async function callAI(prompt, apiKey) {
-  const response = await fetch(BASE_URL, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: 'deepseek-ai/DeepSeek-V3.2',
-      messages: [{ role: 'user', content: prompt }],
-      temperature: 0.7,
-      max_tokens: 1024,
-      stream: false,
-    }),
+  // NOTE: apiKey kept for compatibility, but complete() may manage auth internally
+  return complete({
+    model: MODELS.chat,
+    messages: [
+      {
+        role: 'user',
+        content: prompt,
+      },
+    ],
+    temperature: 0.7,
+    maxTokens: 1024,
   })
-
-  const data = await response.json()
-  return data.choices?.[0]?.message?.content || ''
 }
 
 export function useDrill() {
@@ -35,7 +38,11 @@ export function useDrill() {
   const [evaluation, setEvaluation] = useState(null)
   const [loadingQuestion, setLoadingQuestion] = useState(false)
   const [loadingEval, setLoadingEval] = useState(false)
-  const [sessionStats, setSessionStats] = useState({ correct: 0, wrong: 0, total: 0 })
+  const [sessionStats, setSessionStats] = useState({
+    correct: 0,
+    wrong: 0,
+    total: 0,
+  })
 
   async function generateQuestion() {
     setLoadingQuestion(true)
@@ -57,38 +64,50 @@ export function useDrill() {
 
   async function submitAnswer(answer) {
     if (!question || loadingEval) return
+
     setSelectedAnswer(answer)
     setLoadingEval(true)
 
     try {
       const prompt = buildEvaluationPrompt(
         question.question,
-        `${question.answer}: ${question[question.answer?.toLowerCase()]}`,
-        `${answer}: ${question[answer?.toLowerCase()]}`
+        `${question.answer}: ${
+          question[question.answer?.toLowerCase()]
+        }`,
+        `${answer}: ${
+          question[answer?.toLowerCase()]
+        }`
       )
 
       const raw = await callAI(prompt, apiKey)
       const parsed = parseEvaluation(raw)
+
       setEvaluation(parsed)
 
       // Save to Firestore
-      await saveDrillResult(user.uid, subject, {
-        question: question.question,
-        correct: parsed.correct,
-        studentAnswer: answer,
-        correctAnswer: question.answer,
-        timestamp: new Date().toISOString(),
-      })
+      if (user?.uid) {
+        await saveDrillResult(user.uid, subject, {
+          question: question.question,
+          correct: parsed.correct,
+          studentAnswer: answer,
+          correctAnswer: question.answer,
+          timestamp: new Date().toISOString(),
+        })
+      }
 
       // Update session stats
       setSessionStats((prev) => ({
-        correct: prev.correct + (parsed.correct ? 1 : 0),
-        wrong: prev.wrong + (parsed.correct ? 0 : 1),
+        correct:
+          prev.correct + (parsed.correct ? 1 : 0),
+        wrong:
+          prev.wrong + (parsed.correct ? 0 : 1),
         total: prev.total + 1,
       }))
-
     } catch (err) {
-      console.error('Failed to evaluate answer:', err)
+      console.error(
+        'Failed to evaluate answer:',
+        err
+      )
     } finally {
       setLoadingEval(false)
     }
@@ -98,7 +117,11 @@ export function useDrill() {
     setQuestion(null)
     setSelectedAnswer(null)
     setEvaluation(null)
-    setSessionStats({ correct: 0, wrong: 0, total: 0 })
+    setSessionStats({
+      correct: 0,
+      wrong: 0,
+      total: 0,
+    })
   }
 
   return {

@@ -1,6 +1,9 @@
 import { useState } from 'react'
 
-const BASE_URL = 'https://api.featherless.ai/v1/chat/completions'
+import {
+  streamCompletion,
+  MODELS,
+} from '../services/deepseekClient'
 
 export function useCVChat(onCVUpdate) {
   const [messages, setMessages] = useState([])
@@ -8,15 +11,21 @@ export function useCVChat(onCVUpdate) {
   const [input, setInput] = useState('')
 
   async function send(currentCV) {
-    if (!input.trim() || loading || !currentCV) return
+    if (!input.trim() || loading || !currentCV) {
+      return
+    }
 
-    const userMessage = { role: 'user', content: input.trim() }
+    const userMessage = {
+      role: 'user',
+      content: input.trim(),
+    }
+
     const newMessages = [...messages, userMessage]
+
     setMessages(newMessages)
+
     setInput('')
     setLoading(true)
-
-    const apiKey = import.meta.env.VITE_FEATHERLESS_API_KEY
 
     const systemPrompt = `You are Ace, an expert CV writer assistant. The user has generated a CV and wants to refine it.
 
@@ -34,66 +43,51 @@ The user will ask you to make specific changes. When they do:
 - If the request is unclear, make a reasonable interpretation and apply it`
 
     try {
-      const response = await fetch(BASE_URL, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-          'Content-Type': 'application/json',
+      const fullContent = await streamCompletion({
+        model: MODELS.chat,
+
+        messages: [
+          {
+            role: 'system',
+            content: systemPrompt,
+          },
+
+          ...newMessages,
+        ],
+
+        temperature: 0.7,
+        maxTokens: 4096,
+
+        onChunk: (content) => {
+          onCVUpdate(content)
         },
-        body: JSON.stringify({
-          model: 'deepseek-ai/DeepSeek-V3.2',
-          messages: [
-            { role: 'system', content: systemPrompt },
-            ...newMessages,
-          ],
-          temperature: 0.7,
-          max_tokens: 4096,
-          stream: true,
-        }),
       })
-
-      if (!response.ok) throw new Error('Request failed')
-
-      const reader = response.body.getReader()
-      const decoder = new TextDecoder()
-      let fullContent = ''
-
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
-
-        const chunk = decoder.decode(value, { stream: true })
-        const lines = chunk.split('\n')
-
-        for (const line of lines) {
-          const trimmed = line.trim()
-          if (!trimmed || trimmed === 'data: [DONE]') continue
-          if (!trimmed.startsWith('data: ')) continue
-          try {
-            const json = JSON.parse(trimmed.slice(6))
-            const delta = json.choices?.[0]?.delta?.content
-            if (delta) {
-              fullContent += delta
-              onCVUpdate(fullContent)
-            }
-          } catch {
-            // skip
-          }
-        }
-      }
 
       const assistantMessage = {
         role: 'assistant',
-        content: '✓ Done — CV updated. Keep refining or download when ready.',
+        content:
+          '✓ Done — CV updated. Keep refining or download when ready.',
       }
-      setMessages((prev) => [...prev, assistantMessage])
 
+      setMessages((prev) => [
+        ...prev,
+        assistantMessage,
+      ])
+
+      return fullContent
     } catch (err) {
       setMessages((prev) => [
         ...prev,
-        { role: 'assistant', content: 'Something went wrong. Try again.' },
+        {
+          role: 'assistant',
+          content:
+            'Something went wrong. Try again.',
+        },
       ])
+
       console.error('CV chat error:', err)
+
+      return null
     } finally {
       setLoading(false)
     }
@@ -104,5 +98,12 @@ The user will ask you to make specific changes. When they do:
     setInput('')
   }
 
-  return { messages, loading, input, setInput, send, reset }
+  return {
+    messages,
+    loading,
+    input,
+    setInput,
+    send,
+    reset,
+  }
 }

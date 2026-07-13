@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useCallback, useEffect, useMemo, useRef } from 'react'
 import { useChat } from '../../hooks/useChat'
 import { useChatStore } from '../../store/chatStore'
 import { useUserStore } from '../../store/userStore'
@@ -25,18 +25,31 @@ export default function ChatWindow() {
 
   const language = user?.profile?.language || 'english'
 
-  async function handleEdit(index, newContent) {
+  const handleEdit = useCallback(async (index, newContent) => {
     // Truncate messages from this index (removes the old message + all after it)
     truncateFrom(index)
     // Resend as a new message
     send(newContent)
-  }
+  }, [send, truncateFrom])
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, loading])
 
   const name = user?.profile?.name || 'there'
+
+  const messagesList = useMemo(
+    () =>
+      messages.map((msg, i) => (
+        <MessageBubble
+          key={i}
+          message={msg}
+          index={i}
+          onEdit={handleEdit}
+        />
+      )),
+    [messages, handleEdit]
+  )
 
   return (
     <div className="flex flex-col flex-1 min-h-0">
@@ -89,14 +102,7 @@ export default function ChatWindow() {
           </div>
         )}
 
-        {messages.map((msg, i) => (
-          <MessageBubble
-            key={i}
-            message={msg}
-            index={i}
-            onEdit={handleEdit}
-          />
-        ))}
+        {messagesList}
 
         {streamingContent
           ? <StreamingBubble content={streamingContent} />

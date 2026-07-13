@@ -1,3 +1,27 @@
+// Add at the top of the file
+const conversationCache = new Map()
+const CACHE_TTL = 30000 // 30 seconds
+
+export async function loadConversations(uid, limitCount = 30) {
+  const cacheKey = `convs_${uid}`
+  const cached = conversationCache.get(cacheKey)
+
+  if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+    return cached.data
+  }
+
+  const ref = collection(db, 'students', uid, 'conversations')
+  const q = query(ref, orderBy('updatedAt', 'desc'), limit(limitCount))
+  const snap = await getDocs(q)
+  const data = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+
+  conversationCache.set(cacheKey, { data, timestamp: Date.now() })
+  return data
+}
+
+export function invalidateConversationCache(uid) {
+  conversationCache.delete(`convs_${uid}`)
+}
 import {
   doc,
   getDoc,
@@ -67,17 +91,7 @@ export async function updateConversationTitle(uid, conversationId, title) {
   })
 }
 
-export async function loadConversations(uid, limitCount = 30) {
-  const ref = collection(db, 'students', uid, 'conversations')
 
-  const q = query(ref, orderBy('updatedAt', 'desc'), limit(limitCount))
-  const snap = await getDocs(q)
-
-  return snap.docs.map((d) => ({
-    id: d.id,
-    ...d.data(),
-  }))
-}
 
 export async function saveToolSession(uid, toolId, toolName, preview, icon) {
   const ref = collection(db, 'students', uid, 'conversations')

@@ -14,6 +14,7 @@ import AppRouter from './router'
 import SplashScreen from './components/SplashScreen'
 import { useState } from 'react'
 import { useThemeStore } from './store/themeStore'
+import NetworkBanner from './components/ui/NetworkBanner'
 
 export default function App() {
   const { user } = useAuth()
@@ -63,5 +64,11 @@ export default function App() {
     return <SplashScreen onComplete={handleSplashComplete} />
   }
 
-  return <AppRouter />
+  return 
+  (
+  <>
+    <NetworkBanner />
+  <AppRouter />
+   </>
+)
 }

@@ -1,5 +1,4 @@
-import 'katex/dist/katex.min.css'
-import { InlineMath, BlockMath } from 'react-katex'
+import { useEffect, useState } from 'react'
 
 function normalizeLatex(text) {
   return text
@@ -13,7 +12,29 @@ function normalizeLatex(text) {
 }
 
 export default function MathRenderer({ text }) {
+  const [katexLoaded, setKatexLoaded] = useState(false)
+  const [InlineMath, setInlineMath] = useState(null)
+  const [BlockMath, setBlockMath] = useState(null)
+
+  useEffect(() => {
+    let isMounted = true
+
+    import('react-katex').then((mod) => {
+      if (!isMounted) return
+      setInlineMath(() => mod.InlineMath)
+      setBlockMath(() => mod.BlockMath)
+      setKatexLoaded(true)
+    })
+
+    import('katex/dist/katex.min.css')
+
+    return () => {
+      isMounted = false
+    }
+  }, [])
+
   if (!text) return null
+  if (!katexLoaded) return <span className="whitespace-pre-wrap">{text}</span>
 
   const normalized = normalizeLatex(text)
   const parts = []

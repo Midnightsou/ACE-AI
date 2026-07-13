@@ -1,44 +1,49 @@
-import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
+import { lazy, Suspense } from 'react'
+import { Routes, Route, Navigate } from 'react-router-dom'
 import { useAuth } from './hooks/useAuth'
-import { useUserStore } from './store/userStore'
+
+// Always loaded — critical path
 import LoginPage from './pages/LoginPage'
 import SignupPage from './pages/SignupPage'
-import ChatPage from './pages/ChatPage'
-import ToolPage from './pages/ToolPage'
-import ToolsPage from './pages/ToolsPage'
-import ProfilePage from './pages/ProfilePage'
-import OnboardingFlow from './components/onboarding/OnboardingFlow'
 
+// Lazy loaded — only when needed
+const ChatPage = lazy(() => import('./pages/ChatPage'))
+const ToolsPage = lazy(() => import('./pages/ToolsPage'))
+const ProfilePage = lazy(() => import('./pages/ProfilePage'))
+const OnboardingFlow = lazy(() => import('./components/onboarding/OnboardingFlow'))
+const ToolPage = lazy(() => import('./pages/ToolPage'))
+
+function Spinner() {
+  return (
+    <div className="flex items-center justify-center h-screen bg-zinc-50 dark:bg-zinc-950">
+      <div className="w-7 h-7 border-3 border-violet-600 border-t-transparent rounded-full animate-spin" />
+    </div>
+  )
+}
 
 function ProtectedRoute({ children }) {
-  const { user: authUser, loading } = useAuth()
-  const user = useUserStore((s) => s.user)
-  const location = useLocation()
-
-  if (loading) return null
-  if (!authUser) return <Navigate to="/login" replace />
-  if (!user?.profile?.onboarded && location.pathname !== '/onboarding') {
+  const { user, loading } = useAuth()
+  if (loading) return <Spinner />
+  if (!user) return <Navigate to="/login" replace />
+  if (!user.profile?.onboarded && window.location.pathname !== '/onboarding') {
     return <Navigate to="/onboarding" replace />
   }
-  if (user?.profile?.onboarded && location.pathname === '/onboarding') {
-    return <Navigate to="/chat" replace />
-  }
-
   return children
 }
 
- 
 export default function AppRouter() {
   return (
-    <Routes>
-      <Route path="/login" element={<LoginPage />} />
-      <Route path="/signup" element={<SignupPage />} />
-      <Route path="/onboarding" element={<ProtectedRoute><OnboardingFlow /></ProtectedRoute>} />
-      <Route path="/chat" element={<ProtectedRoute><ChatPage /></ProtectedRoute>} />
-      <Route path="/tools" element={<ProtectedRoute><ToolsPage /></ProtectedRoute>} />
-      <Route path="/tool/:toolId" element={<ProtectedRoute><ToolPage /></ProtectedRoute>} />
-      <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
-      <Route path="*" element={<Navigate to="/chat" replace />} />
-    </Routes>
+    <Suspense fallback={<Spinner />}>
+      <Routes>
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/signup" element={<SignupPage />} />
+        <Route path="/onboarding" element={<ProtectedRoute><OnboardingFlow /></ProtectedRoute>} />
+        <Route path="/chat" element={<ProtectedRoute><ChatPage /></ProtectedRoute>} />
+        <Route path="/tools" element={<ProtectedRoute><ToolsPage /></ProtectedRoute>} />
+        <Route path="/tool/:toolId" element={<ProtectedRoute><ToolPage /></ProtectedRoute>} />
+        <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
+        <Route path="*" element={<Navigate to="/chat" replace />} />
+      </Routes>
+    </Suspense>
   )
 }

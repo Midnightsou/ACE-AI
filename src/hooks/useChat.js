@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useChatStore } from '../store/chatStore'
 import { useUserStore } from '../store/userStore'
 import { useConversationStore } from '../store/conversationStore'
@@ -39,6 +39,7 @@ export function useChat() {
   } = useConversationStore()
 
   const [fileContext, setFileContext] = useState(null)
+  const abortRef = useRef(null)
 
   // Load messages when active conversation changes
   useEffect(() => {
@@ -59,7 +60,14 @@ export function useChat() {
   }
 
   async function send(text) {
-    if (!text.trim() || loading) return
+    if (!text.trim()) return
+
+    if (abortRef.current) {
+      abortRef.current.abort()
+    }
+
+    abortRef.current = new AbortController()
+    const controller = abortRef.current
 
     const count = await getMessageCount(user?.uid)
     if (count >= FREE_LIMIT) {
@@ -140,6 +148,7 @@ export function useChat() {
         profile: user?.profile || {},
         recentMessages: messages.slice(-4),
         apiKey: import.meta.env.VITE_FEATHERLESS_API_KEY,
+        signal: controller.signal,
         onChunk: (content) => {
           setStreamingContent(content)
           finalReply = content
@@ -156,6 +165,10 @@ export function useChat() {
       await updateStreak(user.uid)
 
     } catch (err) {
+      if (err?.name === 'AbortError') {
+        return
+      }
+
       clearStreaming()
 
       const status = err?.status || err?.response?.status
@@ -175,7 +188,10 @@ export function useChat() {
 
       console.error('AI error:', err)
     } finally {
-      setLoading(false)
+      if (abortRef.current === controller) {
+        abortRef.current = null
+        setLoading(false)
+      }
     }
   }
 
@@ -183,6 +199,7 @@ export function useChat() {
     setActiveConversationId(null)
     clearMessages()
   }
+  
 
   return {
     messages,

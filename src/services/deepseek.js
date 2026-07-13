@@ -21,7 +21,7 @@ const MATH_KEYWORDS = [
 ]
 
 function isMathHeavy(message = '') {
-  const lower = message.toLowerCase()
+  const lower = message.toLowerCase() 
   return MATH_KEYWORDS.some((kw) => lower.includes(kw))
 }
 
@@ -30,6 +30,7 @@ export async function sendMessage({
   profile,
   recentMessages = [],
   onChunk,
+  signal,
 }) {
   const lastMessage =
     messages?.[messages.length - 1]?.content || ''
@@ -53,6 +54,7 @@ Use numbered lists when necessary.`
 
   return streamCompletion({
     model,
+    signal,
     messages: [
       {
         role: 'system',

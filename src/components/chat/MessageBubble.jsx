@@ -1,7 +1,7 @@
-import { useState, useRef } from 'react'
+import { memo, useState, useRef } from 'react'
 import { useUserStore } from '../../store/userStore'
 
-export default function MessageBubble({ message, index, onEdit }) {
+const MessageBubble = memo(function MessageBubble({ message, index, onEdit }) {
   const user = useUserStore((s) => s.user)
   const isUser = message.role === 'user'
   const [editing, setEditing] = useState(false)
@@ -108,4 +108,6 @@ export default function MessageBubble({ message, index, onEdit }) {
       )}
     </div>
   )
-}
+})
+
+export default MessageBubble

@@ -15,9 +15,11 @@ export async function streamCompletion({
   temperature = 0.5,
   maxTokens = 4096,
   onChunk,
+  signal,
 }) {
   const response = await fetch(BASE_URL, {
     method: 'POST',
+    signal,
     headers: {
       'Authorization': `Bearer ${getApiKey()}`,
       'Content-Type': 'application/json',

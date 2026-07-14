@@ -64,11 +64,10 @@ export default function App() {
     return <SplashScreen onComplete={handleSplashComplete} />
   }
 
-  return 
-  (
-  <>
-    <NetworkBanner />
-  <AppRouter />
-   </>
-)
+  return (
+    <>
+      <NetworkBanner />
+      <AppRouter />
+    </>
+  )
 }

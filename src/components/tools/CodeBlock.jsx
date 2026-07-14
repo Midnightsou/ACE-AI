@@ -1,9 +1,18 @@
-import { useState } from 'react'
-import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
-import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism'
+import { useState, useEffect } from 'react'
 
 export default function CodeBlock({ code, language }) {
   const [copied, setCopied] = useState(false)
+  const [SyntaxHighlighter, setSyntaxHighlighter] = useState(null)
+  const [style, setStyle] = useState(null)
+
+  useEffect(() => {
+    import('react-syntax-highlighter').then((mod) => {
+      setSyntaxHighlighter(() => mod.Prism)
+    })
+    import('react-syntax-highlighter/dist/esm/styles/prism').then((mod) => {
+      setStyle(() => mod.oneDark)
+    })
+  }, [])
 
   async function handleCopy() {
     await navigator.clipboard.writeText(code)
@@ -13,7 +22,6 @@ export default function CodeBlock({ code, language }) {
 
   return (
     <div className="rounded-xl overflow-hidden border border-zinc-700 my-2">
-      {/* Header */}
       <div className="flex items-center justify-between px-4 py-2 bg-zinc-800">
         <span className="text-xs text-zinc-400 font-mono">{language || 'code'}</span>
         <button
@@ -39,22 +47,27 @@ export default function CodeBlock({ code, language }) {
         </button>
       </div>
 
-      {/* Code */}
-      <SyntaxHighlighter
-        language={language || 'text'}
-        style={oneDark}
-        customStyle={{
-          margin: 0,
-          borderRadius: 0,
-          fontSize: '13px',
-          lineHeight: '1.6',
-          padding: '16px',
-        }}
-        showLineNumbers={code.split('\n').length > 5}
-        wrapLongLines={false}
-      >
-        {code}
-      </SyntaxHighlighter>
+      {SyntaxHighlighter && style ? (
+        <SyntaxHighlighter
+          language={language || 'text'}
+          style={style}
+          customStyle={{
+            margin: 0,
+            borderRadius: 0,
+            fontSize: '13px',
+            lineHeight: '1.6',
+            padding: '16px',
+          }}
+          showLineNumbers={code.split('\n').length > 5}
+          wrapLongLines={false}
+        >
+          {code}
+        </SyntaxHighlighter>
+      ) : (
+        <pre className="bg-zinc-900 text-zinc-100 p-4 text-xs leading-relaxed overflow-x-auto">
+          <code>{code}</code>
+        </pre>
+      )}
     </div>
   )
 }

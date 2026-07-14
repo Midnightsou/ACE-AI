@@ -1,19 +1,19 @@
 import { useState, useEffect } from 'react'
 
 export default function MathGraph({ expression }) {
+  const [Plot, setPlot] = useState(null)
   const [points, setPoints] = useState({ x: [], y: [] })
   const [error, setError] = useState(null)
-  const [PlotComponent, setPlotComponent] = useState(null)
 
+  // Load Plotly only when this component mounts
   useEffect(() => {
     import('react-plotly.js').then((mod) => {
-      setPlotComponent(() => mod.default)
-    })
+      setPlot(() => mod.default)
+    }).catch(() => setError('Failed to load graph'))
   }, [])
 
   useEffect(() => {
     if (!expression) return
-
     try {
       const cleanExpr = expression
         .replace(/y\s*=\s*/i, '')
@@ -30,19 +30,13 @@ export default function MathGraph({ expression }) {
 
       const xVals = []
       const yVals = []
-      const step = 0.1
 
-      for (let x = -10; x <= 10; x += step) {
+      for (let x = -10; x <= 10; x += 0.1) {
         try {
           // eslint-disable-next-line no-new-func
           const y = new Function('x', `return ${cleanExpr}`)(x)
-          if (isFinite(y) && !isNaN(y)) {
-            xVals.push(parseFloat(x.toFixed(4)))
-            yVals.push(parseFloat(y.toFixed(4)))
-          } else {
-            xVals.push(parseFloat(x.toFixed(4)))
-            yVals.push(null)
-          }
+          xVals.push(parseFloat(x.toFixed(4)))
+          yVals.push(isFinite(y) ? parseFloat(y.toFixed(4)) : null)
         } catch {
           xVals.push(parseFloat(x.toFixed(4)))
           yVals.push(null)
@@ -51,7 +45,7 @@ export default function MathGraph({ expression }) {
 
       setPoints({ x: xVals, y: yVals })
       setError(null)
-    } catch (err) {
+    } catch {
       setError('Could not plot this expression')
     }
   }, [expression])
@@ -60,19 +54,24 @@ export default function MathGraph({ expression }) {
     <div className="text-xs text-red-400 px-3 py-2">{error}</div>
   )
 
-  if (!PlotComponent) return (
-    <div className="h-48 flex items-center justify-center text-xs text-zinc-400">
-      Loading graph...
+  if (!Plot) return (
+    <div className="h-48 flex items-center justify-center text-xs text-zinc-400 bg-white border border-zinc-200 rounded-xl">
+      <div className="flex items-center gap-2">
+        <div className="w-3 h-3 border-2 border-violet-400 border-t-transparent rounded-full animate-spin" />
+        Loading graph...
+      </div>
     </div>
   )
 
   return (
     <div className="rounded-xl overflow-hidden border border-zinc-200 my-2 bg-white">
       <div className="px-3 py-2 border-b border-zinc-100 flex items-center justify-between">
-        <p className="text-xs text-zinc-500 font-mono">y = {expression.replace(/y\s*=\s*/i, '')}</p>
+        <p className="text-xs text-zinc-500 font-mono">
+          y = {expression.replace(/y\s*=\s*/i, '')}
+        </p>
         <span className="text-xs text-zinc-400">Graph</span>
       </div>
-      <PlotComponent
+      <Plot
         data={[{
           x: points.x,
           y: points.y,
@@ -85,18 +84,8 @@ export default function MathGraph({ expression }) {
           autosize: true,
           height: 260,
           margin: { l: 40, r: 20, t: 20, b: 40 },
-          xaxis: {
-            zeroline: true,
-            zerolinecolor: '#d1d5db',
-            gridcolor: '#f3f4f6',
-            range: [-10, 10],
-          },
-          yaxis: {
-            zeroline: true,
-            zerolinecolor: '#d1d5db',
-            gridcolor: '#f3f4f6',
-            autorange: true,
-          },
+          xaxis: { zeroline: true, zerolinecolor: '#d1d5db', gridcolor: '#f3f4f6', range: [-10, 10] },
+          yaxis: { zeroline: true, zerolinecolor: '#d1d5db', gridcolor: '#f3f4f6', autorange: true },
           paper_bgcolor: 'white',
           plot_bgcolor: 'white',
           font: { family: 'Inter, sans-serif', size: 11 },

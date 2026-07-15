@@ -10,6 +10,7 @@ import SignupPage from './pages/SignupPage'
 const ChatPage = lazy(() => import('./pages/ChatPage'))
 const ToolsPage = lazy(() => import('./pages/ToolsPage'))
 const ProfilePage = lazy(() => import('./pages/ProfilePage'))
+const PricingPage = lazy(() => import('./pages/PricingPage'))
 const OnboardingFlow = lazy(() => import('./components/onboarding/OnboardingFlow'))
 const ToolPage = lazy(() => import('./pages/ToolPage'))
 
@@ -42,6 +43,7 @@ export default function AppRouter() {
         <Route path="/tools" element={<ProtectedRoute><ToolsPage /></ProtectedRoute>} />
         <Route path="/tool/:toolId" element={<ProtectedRoute><ToolPage /></ProtectedRoute>} />
         <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
+        <Route path="/pricing" element={<ProtectedRoute><PricingPage /></ProtectedRoute>} />
         <Route path="*" element={<Navigate to="/chat" replace />} />
       </Routes>
     </Suspense>

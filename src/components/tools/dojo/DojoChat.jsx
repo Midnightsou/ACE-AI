@@ -36,25 +36,16 @@ export default function DojoChat() {
     }
   }
 
-  if (readySources.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center h-full gap-3 text-center px-6">
-        <span className="text-3xl">💬</span>
-        <p className="text-sm font-medium text-zinc-600">
-          Add sources first
-        </p>
-        <p className="text-xs text-zinc-400 max-w-xs leading-relaxed">
-          Upload files, paste text, or add URLs on the left. Then ask Ace anything about them.
-        </p>
-      </div>
-    )
-  }
-
   return (
     <div className="flex flex-col h-full">
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto px-4 py-4">
+        {readySources.length === 0 && (
+          <div className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+            Add files, paste text, or URLs on the left to start chatting with Ace.
+          </div>
+        )}
 
         {messages.length === 0 && (
           <div className="flex flex-col gap-3">
@@ -66,7 +57,9 @@ export default function DojoChat() {
                 <p className="text-xs font-semibold text-violet-700">Ace Dojo</p>
               </div>
               <p className="text-sm text-violet-800 leading-relaxed">
-                I've read all {readySources.length} source{readySources.length !== 1 ? 's' : ''} you uploaded. Ask me anything about them — I'll answer strictly from your content and tell you which source each answer comes from.
+                {readySources.length > 0
+                  ? `I've read all ${readySources.length} source${readySources.length !== 1 ? 's' : ''} you uploaded. Ask me anything about them — I'll answer strictly from your content and tell you which source each answer comes from.`
+                  : 'Start by adding sources, then ask Ace anything about them.'}
               </p>
             </div>
 
@@ -154,7 +147,7 @@ export default function DojoChat() {
           />
           <button
             onClick={handleSend}
-            disabled={loading || !input.trim()}
+            disabled={loading || !input.trim() || readySources.length === 0}
             className="w-8 h-8 bg-violet-600 hover:bg-violet-700 disabled:opacity-40 disabled:cursor-not-allowed rounded-xl flex items-center justify-center transition-colors flex-shrink-0"
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round">
@@ -164,7 +157,9 @@ export default function DojoChat() {
           </button>
         </div>
         <p className="text-center text-xs text-zinc-400 mt-2">
-          Ace answers only from your uploaded sources
+          {readySources.length > 0
+            ? 'Ace answers only from your uploaded sources'
+            : 'Add sources to start chatting'}
         </p>
       </div>
     </div>

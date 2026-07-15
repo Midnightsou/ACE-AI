@@ -147,6 +147,22 @@ export default function Sidebar({ isOpen, onClose }) {
             </button>
           </div>
 
+          {/* Upgrade prompt for free users */}
+          {!user?.profile?.isPro && (
+            <div className="px-3 pb-2">
+              <button
+                onClick={() => { navigate('/pricing'); onClose() }}
+                className="w-full flex items-center gap-2 px-3 py-2.5 bg-violet-600/10 hover:bg-violet-600/20 border border-violet-500/20 rounded-xl transition-colors text-left"
+              >
+                <span className="text-sm">⭐</span>
+                <div>
+                  <p className="text-sm font-medium text-violet-700">Upgrade to Pro</p>
+                  <p className="text-xs text-violet-600/80">From ₦2,500/month</p>
+                </div>
+              </button>
+            </div>
+          )}
+
           {/* All tools button */}
           <div className="px-3 pb-2">
             <button

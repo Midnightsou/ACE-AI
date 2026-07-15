@@ -205,6 +205,31 @@ export default function ProfilePage() {
               </div>
             </div>
 
+            {/* Plan info */}
+            <div className="bg-white rounded-2xl border border-zinc-100 shadow-sm overflow-hidden">
+              <div className="px-5 py-4 border-b border-zinc-50">
+                <p className="text-sm font-semibold text-zinc-800">Plan info</p>
+              </div>
+              <div className="p-5 flex flex-col gap-3">
+                <div className="rounded-xl bg-violet-50 border border-violet-100 px-4 py-3">
+                  <p className="text-sm font-medium text-zinc-800">
+                    {user?.profile?.plan === 'proPlus'
+                      ? 'Pro+ — Unlimited everything'
+                      : user?.profile?.plan === 'pro' || user?.profile?.isPro
+                        ? 'Pro — 200 messages/day'
+                        : 'Free — 20 messages/day'
+                    }
+                  </p>
+                </div>
+                <button
+                  onClick={() => navigate('/pricing')}
+                  className="w-full py-3 bg-violet-600 hover:bg-violet-700 text-white text-sm font-medium rounded-xl transition-colors"
+                >
+                  {user?.profile?.isPro ? 'Manage subscription' : 'Upgrade to Pro'}
+                </button>
+              </div>
+            </div>
+
             {/* Change password */}
             <div className="bg-white rounded-2xl border border-zinc-100 shadow-sm overflow-hidden">
               <div className="px-5 py-4 border-b border-zinc-50">

@@ -13,8 +13,7 @@ import {
   incrementMessageCount,
   updateStreak,
 } from '../services/memory'
-
-const FREE_LIMIT = 150
+import { canUseFeature, getUpgradeMessage } from '../config/pricing'
 
 export function useChat() {
   const {
@@ -69,11 +68,14 @@ export function useChat() {
     abortRef.current = new AbortController()
     const controller = abortRef.current
 
-    const count = await getMessageCount(user?.uid)
-    if (count >= FREE_LIMIT) {
+    const profile = user?.profile
+    const messageCount = profile?.dailyMessageCount || 0
+    const allowed = canUseFeature(profile, 'message', messageCount)
+
+    if (!allowed) {
       addMessage({
         role: 'assistant',
-        content: "You've reached your 10 free messages for today. Upgrade to Pro to keep chatting without limits.",
+        content: `${getUpgradeMessage('message')}\n\nGo to Settings → Pricing to upgrade.`,
       })
       return
     }

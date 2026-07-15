@@ -1,122 +1,73 @@
-export function buildDojoChatPrompt(sources) {
-  const sourceContext = sources
-    .map((s, i) => `--- Source ${i + 1}: ${s.name} ---\n${s.content}`)
+function formatSources(sources = []) {
+  return sources
+    .map((source, index) => {
+      const content = source?.content || ''
+      const title = source?.title || `Source ${index + 1}`
+      return `Source ${index + 1}: ${title}\n\n${content}`.trim()
+    })
     .join('\n\n')
+}
 
-  return `You are Ace Dojo, an expert research assistant. You have been given the following sources to study:
+function buildPrompt(sources, instruction) {
+  const sourcesText = formatSources(sources)
 
-${sourceContext}
+  return {
+    system: `You are Ace, a clear and encouraging study tutor. Use the provided sources only and answer in a practical, helpful way.`,
+    user: `${instruction}\n\nSources:\n${sourcesText}`,
+  }
+}
 
----
+export function buildDojoChatPrompt(sources) {
+  const sourcesText = formatSources(sources)
 
-Your rules:
-- Answer questions ONLY based on the provided sources
-- Always cite which source your answer comes from — e.g. "According to Source 1..."
-- If the answer is not in the sources, say clearly: "I couldn't find this in your sources."
-- Be thorough but concise
-- If multiple sources mention the same thing, synthesize them
-- Never make up information not present in the sources
-- Plain text only — no markdown, no asterisks, no headers
-- Use numbers for lists only when listing steps or items`
+  return `You are Ace, a clear and encouraging study tutor. Use the provided sources only and answer the latest user question clearly and helpfully. Keep the response focused and educational.\n\nSources:\n${sourcesText}`
 }
 
 export function buildSummaryPrompt(sources) {
-  const sourceContext = sources
-    .map((s, i) => `--- Source ${i + 1}: ${s.name} ---\n${s.content}`)
-    .join('\n\n')
-
-  return {
-    system: `You are an expert summarizer. Create clear, comprehensive summaries from provided sources.
-
-Rules:
-- Summarize ALL sources provided
-- For each source write a separate section starting with the source name
-- After individual summaries write an "Overall Summary" combining all sources
-- Plain text only — no markdown, no asterisks
-- Be thorough — capture all key points`,
-
-    user: `Summarize these sources:\n\n${sourceContext}`,
-  }
+  return buildPrompt(
+    sources,
+    'Create a concise summary of the key ideas from the sources. Highlight the most important points in a structured way.'
+  )
 }
 
 export function buildKeyConceptsPrompt(sources) {
-  const sourceContext = sources
-    .map((s, i) => `--- Source ${i + 1}: ${s.name} ---\n${s.content}`)
-    .join('\n\n')
-
-  return {
-    system: `You are an expert at extracting key concepts from documents.
-
-Rules:
-- Extract the most important concepts, ideas, terms, and themes
-- For each concept: give the concept name, a clear 2-3 sentence explanation, and which source it came from
-- Group related concepts together
-- Plain text only — no markdown, no asterisks
-- Number each concept`,
-
-    user: `Extract key concepts from these sources:\n\n${sourceContext}`,
-  }
+  return buildPrompt(
+    sources,
+    'Extract the most important concepts, terms, and ideas from the sources. Present them as a clear list with brief explanations.'
+  )
 }
 
 export function buildQuizPrompt(sources) {
-  const sourceContext = sources
-    .map((s, i) => `--- Source ${i + 1}: ${s.name} ---\n${s.content}`)
-    .join('\n\n')
+  return buildPrompt(
+    sources,
+    'Generate a short quiz from the sources. Include a few multiple-choice or short-answer questions with answers.'
+  )
+}
 
-  return {
-    system: `You are an expert quiz maker. Create challenging but fair questions based on provided sources.
+export function buildFlashcardsPrompt(sources) {
+  return buildPrompt(
+    sources,
+    'Create study flashcards from the sources. Format each card as CARD n, Q: ..., A: ...'
+  )
+}
 
-Rules:
-- Create 5 multiple choice questions and 3 short answer questions
-- Each multiple choice question must have exactly 4 options labeled A, B, C, D
-- Include the correct answer after each question
-- Questions must be answerable from the sources only
-- Plain text only — no markdown, no asterisks
-- Format exactly like this:
+export function buildMindMapPrompt(sources) {
+  return buildPrompt(
+    sources,
+    'Create a mind map outline from the sources. Organize the main topic, subtopics, and supporting details in a clear hierarchy.'
+  )
+}
 
-MULTIPLE CHOICE
-
-1. [question]
-A: [option]
-B: [option]
-C: [option]
-D: [option]
-Answer: [letter]
-
-SHORT ANSWER
-
-6. [question]
-Answer: [answer]`,
-
-    user: `Create a quiz from these sources:\n\n${sourceContext}`,
-  }
+export function buildReportPrompt(sources) {
+  return buildPrompt(
+    sources,
+    'Write a structured study report from the sources. Include an overview, key takeaways, and useful insights.'
+  )
 }
 
 export function buildPodcastPrompt(sources) {
-  const sourceContext = sources
-    .map((s, i) => `--- Source ${i + 1}: ${s.name} ---\n${s.content}`)
-    .join('\n\n')
-
-  return {
-    system: `You are an expert podcast script writer. Create an engaging, natural podcast conversation between two hosts discussing the provided sources.
-
-Rules:
-- Host names: Alex (curious, asks great questions) and Sam (knowledgeable, explains clearly)
-- Write a natural back-and-forth conversation — not a lecture
-- Cover all major points from the sources
-- Make it engaging and accessible to a general audience
-- Include moments of insight, surprise, and discussion
-- Aim for approximately 800-1200 words
-- Plain text only — no markdown
-- Format EXACTLY like this with no variation:
-
-ALEX: [what Alex says]
-SAM: [what Sam says]
-ALEX: [what Alex says]
-SAM: [what Sam says]
-
-Start with Alex introducing the topic.`,
-
-    user: `Create an engaging podcast conversation about these sources:\n\n${sourceContext}`,
-  }
+  return buildPrompt(
+    sources,
+    'Write a conversational podcast script with two hosts discussing the sources in an engaging and easy-to-follow way.'
+  )
 }

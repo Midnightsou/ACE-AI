@@ -84,25 +84,26 @@ export function useDojo() {
     setStreamingContent('')
 
     try {
-      const systemPrompt =
-        buildDojoChatPrompt(readySources)
+      const systemPrompt = buildDojoChatPrompt(readySources)
+      const history = messages.slice(-10).map((m) => ({
+        role: m.role === 'user' ? 'user' : 'assistant',
+        content: typeof m.content === 'string' ? m.content : String(m.content || ''),
+      }))
 
-      const history = [...messages, userMessage]
-
-      const fullContent = await streamFromAI(
-        systemPrompt,
-
-        history
-          .map(
-            (m) =>
-              `${m.role === 'user' ? 'User' : 'Ace'}: ${
-                m.content
-              }`
-          )
-          .join('\n'),
-
-        (chunk) => setStreamingContent(chunk)
-      )
+      const fullContent = await streamCompletion({
+        model: MODELS.chat,
+        messages: [
+          {
+            role: 'system',
+            content: systemPrompt,
+          },
+          ...history,
+          { role: 'user', content: text },
+        ],
+        temperature: 0.5,
+        maxTokens: 4096,
+        onChunk: (chunk) => setStreamingContent(chunk),
+      })
 
       addMessage({
         role: 'assistant',

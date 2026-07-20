@@ -1,12 +1,10 @@
+import { collection, addDoc, doc, updateDoc, serverTimestamp } from 'firebase/firestore'
+import { db } from '../services/firebase'
 import { useMathStore } from '../store/mathStore'
 import { useUserStore } from '../store/userStore'
 import { buildMathSystemPrompt } from '../prompts/tools/mathPrompt'
 
-import {
-  saveToolSession,
-  saveToolMessage,
-  loadToolMessages,
-} from '../services/memory'
+import { loadToolMessages } from '../services/memory'
 
 import {
   streamCompletion,
@@ -55,26 +53,44 @@ export function useMathMode() {
 
     try {
       let currentSessionId = sessionId
+      const previewTitle = `Math — ${text.slice(0, 40)}${
+        text.length > 40 ? '...' : ''
+      }`
 
       if (!currentSessionId && user?.uid) {
-        currentSessionId = await saveToolSession(
-          user.uid,
-          'math',
-          'Math Mode',
-          `Math — ${text.slice(0, 40)}${
-            text.length > 40 ? '...' : ''
-          }`,
-          '🧮'
+        const ref = await addDoc(
+          collection(db, 'students', user.uid, 'conversations'),
+          {
+            type: 'tool',
+            toolId: 'math',
+            toolName: 'Math Mode',
+            icon: '🧮',
+            title: previewTitle,
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+          }
         )
 
+        currentSessionId = ref.id
         setSessionId(currentSessionId)
       }
 
       if (user?.uid && currentSessionId) {
-        await saveToolMessage(
-          user.uid,
-          currentSessionId,
-          userMessage
+        await addDoc(
+          collection(db, 'students', user.uid, 'conversations', currentSessionId, 'messages'),
+          {
+            role: 'user',
+            content: text,
+            createdAt: serverTimestamp(),
+          }
+        )
+
+        await updateDoc(
+          doc(db, 'students', user.uid, 'conversations', currentSessionId),
+          {
+            updatedAt: serverTimestamp(),
+            title: previewTitle,
+          }
         )
       }
 
@@ -113,20 +129,21 @@ export function useMathMode() {
       setStreamingContent('')
 
       if (user?.uid && currentSessionId) {
-        await saveToolMessage(
-          user.uid,
-          currentSessionId,
-          assistantMessage
+        await addDoc(
+          collection(db, 'students', user.uid, 'conversations', currentSessionId, 'messages'),
+          {
+            role: 'assistant',
+            content: fullContent,
+            createdAt: serverTimestamp(),
+          }
         )
 
-        await saveToolSession(
-          user.uid,
-          'math',
-          'Math Mode',
-          `Math — ${text.slice(0, 40)}${
-            text.length > 40 ? '...' : ''
-          }`,
-          '🧮'
+        await updateDoc(
+          doc(db, 'students', user.uid, 'conversations', currentSessionId),
+          {
+            updatedAt: serverTimestamp(),
+            title: previewTitle,
+          }
         )
       }
     } catch (err) {

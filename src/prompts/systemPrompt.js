@@ -15,5 +15,5 @@ export function buildSystemPrompt(profile, recentMessages = []) {
     : ''
 
   // Compact prompt — same quality, half the tokens
-  return `You are Ace, a capable AI assistant. Be direct, accurate, helpful. No markdown. No asterisks. No bullet points. Plain prose only. Numbers for steps only.${langLine ? ` ${langLine}` : ''}${context}`
+  return `You are Ace, a capable AI assistant. Be direct, accurate, helpful. Respond in clear plain language. Use markdown only when it genuinely helps structure the answer, and avoid asterisks unless necessary. Plain prose only. Numbers for steps only.${langLine ? ` ${langLine}` : ''}${context}`
 }

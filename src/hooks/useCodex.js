@@ -1,12 +1,10 @@
 import { useState } from 'react'
+import { collection, addDoc, doc, updateDoc, serverTimestamp } from 'firebase/firestore'
+import { db } from '../services/firebase'
 import { useCodexStore } from '../store/codexStore'
 import { useUserStore } from '../store/userStore'
 import { buildCodexSystemPrompt } from '../prompts/tools/codexPrompt'
-import {
-  saveToolSession,
-  saveToolMessage,
-  loadToolMessages,
-} from '../services/memory'
+import { loadToolMessages } from '../services/memory'
 
 import {
   streamCompletion,
@@ -58,26 +56,44 @@ export function useCodex() {
 
     try {
       let currentSessionId = sessionId
+      const previewTitle = `Codex — ${text.slice(0, 40)}${
+        text.length > 40 ? '...' : ''
+      }`
 
       if (!currentSessionId && user?.uid) {
-        currentSessionId = await saveToolSession(
-          user.uid,
-          'codex',
-          'Codex',
-          `Codex — ${text.slice(0, 40)}${
-            text.length > 40 ? '...' : ''
-          }`,
-          '💻'
+        const ref = await addDoc(
+          collection(db, 'students', user.uid, 'conversations'),
+          {
+            type: 'tool',
+            toolId: 'codex',
+            toolName: 'Codex',
+            icon: '💻',
+            title: previewTitle,
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+          }
         )
 
+        currentSessionId = ref.id
         setSessionId(currentSessionId)
       }
 
       if (user?.uid && currentSessionId) {
-        await saveToolMessage(
-          user.uid,
-          currentSessionId,
-          userMessage
+        await addDoc(
+          collection(db, 'students', user.uid, 'conversations', currentSessionId, 'messages'),
+          {
+            role: 'user',
+            content: text,
+            createdAt: serverTimestamp(),
+          }
+        )
+
+        await updateDoc(
+          doc(db, 'students', user.uid, 'conversations', currentSessionId),
+          {
+            updatedAt: serverTimestamp(),
+            title: previewTitle,
+          }
         )
       }
 
@@ -116,20 +132,21 @@ export function useCodex() {
       setStreamingContent('')
 
       if (user?.uid && currentSessionId) {
-        await saveToolMessage(
-          user.uid,
-          currentSessionId,
-          assistantMessage
+        await addDoc(
+          collection(db, 'students', user.uid, 'conversations', currentSessionId, 'messages'),
+          {
+            role: 'assistant',
+            content: fullContent,
+            createdAt: serverTimestamp(),
+          }
         )
 
-        await saveToolSession(
-          user.uid,
-          'codex',
-          'Codex',
-          `Codex — ${text.slice(0, 40)}${
-            text.length > 40 ? '...' : ''
-          }`,
-          '💻'
+        await updateDoc(
+          doc(db, 'students', user.uid, 'conversations', currentSessionId),
+          {
+            updatedAt: serverTimestamp(),
+            title: previewTitle,
+          }
         )
       }
     } catch (err) {

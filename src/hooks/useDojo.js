@@ -1,11 +1,13 @@
 import { useState } from 'react'
+import { collection, addDoc, doc, updateDoc, serverTimestamp } from 'firebase/firestore'
 
+import { db } from '../services/firebase'
 import { useDojoStore } from '../store/dojoStore'
 import { useUserStore } from '../store/userStore'
 
 import { buildDojoChatPrompt } from '../prompts/tools/dojoPrompt'
 
-import { saveToolSession } from '../services/memory'
+import { loadToolMessages } from '../services/memory'
 
 import {
   streamCompletion,
@@ -16,9 +18,13 @@ export function useDojo() {
   const {
     sources,
     messages,
+    sessionId,
     addMessage,
+    setMessages,
+    setSessionId,
     setGeneratedContent,
     generatedContent,
+    clearSession,
   } = useDojoStore()
 
   const user = useUserStore((s) => s.user)
@@ -63,6 +69,20 @@ export function useDojo() {
     })
   }
 
+  async function loadSession(sid) {
+    if (!user?.uid || !sid) return
+
+    clearSession()
+    setSessionId(sid)
+
+    try {
+      const msgs = await loadToolMessages(user.uid, sid)
+      setMessages(msgs)
+    } catch (err) {
+      console.error('Failed to load dojo session:', err)
+    }
+  }
+
   // ── Chat ────────────────────────────────────────────
   async function sendMessage(text) {
     if (
@@ -84,11 +104,50 @@ export function useDojo() {
     setStreamingContent('')
 
     try {
+      let currentSessionId = sessionId
+      const previewTitle = `Dojo — ${text.slice(0, 40)}`
       const systemPrompt = buildDojoChatPrompt(readySources)
-      const history = messages.slice(-10).map((m) => ({
+      const cleanHistory = [...messages].slice(-10).map((m) => ({
         role: m.role === 'user' ? 'user' : 'assistant',
         content: typeof m.content === 'string' ? m.content : String(m.content || ''),
       }))
+
+      if (!currentSessionId && user?.uid) {
+        const ref = await addDoc(
+          collection(db, 'students', user.uid, 'conversations'),
+          {
+            type: 'tool',
+            toolId: 'dojo',
+            toolName: 'Dojo',
+            icon: '🥋',
+            title: previewTitle,
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+          }
+        )
+
+        currentSessionId = ref.id
+        setSessionId(currentSessionId)
+      }
+
+      if (user?.uid && currentSessionId) {
+        await addDoc(
+          collection(db, 'students', user.uid, 'conversations', currentSessionId, 'messages'),
+          {
+            role: 'user',
+            content: text,
+            createdAt: serverTimestamp(),
+          }
+        )
+
+        await updateDoc(
+          doc(db, 'students', user.uid, 'conversations', currentSessionId),
+          {
+            updatedAt: serverTimestamp(),
+            title: previewTitle,
+          }
+        )
+      }
 
       const fullContent = await streamCompletion({
         model: MODELS.chat,
@@ -97,7 +156,7 @@ export function useDojo() {
             role: 'system',
             content: systemPrompt,
           },
-          ...history,
+          ...cleanHistory,
           { role: 'user', content: text },
         ],
         temperature: 0.5,
@@ -112,14 +171,23 @@ export function useDojo() {
 
       setStreamingContent('')
 
-      if (user?.uid) {
-        await saveToolSession(
-          user.uid,
-          'dojo',
-          'Dojo',
-          `Dojo — ${text.slice(0, 40)}`,
-          '🥋'
-        ).catch(() => {})
+      if (user?.uid && currentSessionId) {
+        await addDoc(
+          collection(db, 'students', user.uid, 'conversations', currentSessionId, 'messages'),
+          {
+            role: 'assistant',
+            content: fullContent,
+            createdAt: serverTimestamp(),
+          }
+        )
+
+        await updateDoc(
+          doc(db, 'students', user.uid, 'conversations', currentSessionId),
+          {
+            updatedAt: serverTimestamp(),
+            title: previewTitle,
+          }
+        )
       }
     } catch (err) {
       addMessage({
@@ -185,5 +253,6 @@ export function useDojo() {
     sendMessage,
     generateContent,
     streamFromAI,
+    loadSession,
   }
 }

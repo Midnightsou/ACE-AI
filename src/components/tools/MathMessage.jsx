@@ -1,5 +1,6 @@
 import MathRenderer from './MathRenderer'
 import MathGraph from './MathGraph'
+import ToolMessageBubble from './ToolMessageBubble'
 
 function extractGraphExpression(content) {
   const match = content.match(/GRAPH:\s*(.+)/i)
@@ -8,84 +9,67 @@ function extractGraphExpression(content) {
 
 function preprocessContent(content) {
   return content
+    // Remove markdown headers
     .replace(/^#{1,6}\s+/gm, '')
+    // Remove horizontal rules
     .replace(/^---+$/gm, '')
     .replace(/^___+$/gm, '')
-    .replace(/\*\*ANSWER/gi, 'ANSWER')
-    .replace(/\*\*/g, '')
+    // Strip bold markdown
+    .replace(/\*\*(.+?)\*\*/g, '$1')
+    .replace(/\*(.+?)\*/g, '$1')
+    // Remove GRAPH line (rendered separately)
     .replace(/GRAPH:\s*.+/gi, '')
+    // Remove duplicate blank lines
+    .replace(/\n{3,}/g, '\n\n')
     .trim()
 }
 
 function splitIntoBlocks(content) {
   const blocks = []
   const lines = content.split('\n')
-  let current = []
-  let inLatexBlock = false
+  let currentText = []
+
+  const flush = () => {
+    const t = currentText.join('\n').trim()
+    if (t) blocks.push({ type: 'text', content: t })
+    currentText = []
+  }
 
   for (const line of lines) {
     const trimmed = line.trim()
 
-    if (trimmed.startsWith('\\[')) {
-      if (current.length > 0) {
-        blocks.push({ type: 'text', content: current.join('\n') })
-        current = []
-      }
-      inLatexBlock = true
-      current.push(line)
-      continue
-    }
-
-    if (inLatexBlock) {
-      current.push(line)
-      if (trimmed.endsWith('\\]')) {
-        blocks.push({ type: 'latex_block', content: current.join('\n') })
-        current = []
-        inLatexBlock = false
-      }
-      continue
-    }
-
-    // Step lines get their own block
-    if (/^step\s*\d+/i.test(trimmed)) {
-      if (current.length > 0) {
-        blocks.push({ type: 'text', content: current.join('\n') })
-        current = []
-      }
+    // Step line
+    if (/^step\s*\d+[:\s.]/i.test(trimmed)) {
+      flush()
       blocks.push({ type: 'step', content: trimmed })
       continue
     }
 
-    // Answer line gets its own block
-    if (/^ANSWER/i.test(trimmed)) {
-      if (current.length > 0) {
-        blocks.push({ type: 'text', content: current.join('\n') })
-        current = []
-      }
+    // Answer line
+    if (/^answer[:\s]/i.test(trimmed)) {
+      flush()
       blocks.push({ type: 'answer', content: trimmed })
       continue
     }
 
-    current.push(line)
+    currentText.push(line)
   }
 
-  if (current.length > 0) {
-    blocks.push({ type: 'text', content: current.join('\n') })
-  }
-
+  flush()
   return blocks
 }
 
-export default function MathMessage({ message, isStreaming }) {
+export default function MathMessage({ message, isStreaming, index, onEdit }) {
   const isUser = message.role === 'user'
 
   if (isUser) {
     return (
-      <div className="flex justify-end mb-4">
-        <div className="max-w-[75%] px-4 py-3 rounded-2xl rounded-tr-sm text-sm leading-relaxed bg-violet-600 text-white">
-          {message.content}
-        </div>
-      </div>
+      <ToolMessageBubble
+        message={message}
+        index={index}
+        isUser={true}
+        onEdit={onEdit}
+      />
     )
   }
 
@@ -95,16 +79,16 @@ export default function MathMessage({ message, isStreaming }) {
 
   return (
     <div className="flex justify-start mb-4">
-      <div className="w-7 h-7 rounded-full bg-violet-600 flex items-center justify-center text-white text-xs font-bold mr-2 flex-shrink-0 mt-1">
+      <div className="w-7 h-7 rounded-full bg-violet-600 flex items-center justify-center text-white text-xs font-bold mr-2 flex-shrink-0 mt-1 select-none">
         ∑
       </div>
-      <div className="flex-1 max-w-[85%] flex flex-col gap-2">
-
+      <div className="flex-1 max-w-[88%] flex flex-col gap-2">
         <div className="bg-white border border-zinc-100 shadow-sm px-5 py-4 rounded-2xl rounded-tl-sm">
           {blocks.map((block, i) => {
-            if (!block.content.trim() && block.type === 'text') return null
+            if (!block.content?.trim()) return null
 
             if (block.type === 'answer') {
+              const answerText = block.content.replace(/^answer[:\s]*/i, '').trim()
               return (
                 <div key={i} className="mt-4 pt-4 border-t border-zinc-100">
                   <div className="flex items-start gap-3 bg-violet-50 border border-violet-200 rounded-xl px-4 py-3">
@@ -112,7 +96,7 @@ export default function MathMessage({ message, isStreaming }) {
                       Answer
                     </span>
                     <div className="text-sm text-violet-800 font-medium flex-1">
-                      <MathRenderer text={block.content.replace(/^ANSWER:\s*/i, '')} />
+                      <MathRenderer text={answerText} />
                     </div>
                   </div>
                 </div>
@@ -121,7 +105,9 @@ export default function MathMessage({ message, isStreaming }) {
 
             if (block.type === 'step') {
               const stepLabel = block.content.match(/^(step\s*\d+)/i)?.[1] || ''
-              const stepContent = block.content.replace(/^step\s*\d+[:\s.]*/i, '').trim()
+              const stepContent = block.content
+                .replace(/^step\s*\d+[:\s.]*/i, '')
+                .trim()
               return (
                 <div key={i} className="mb-3 mt-1">
                   <p className="text-xs font-bold text-violet-500 uppercase tracking-wider mb-1.5">

@@ -20,7 +20,6 @@ export default defineConfig({
           if (id.includes('react-dom') || id.includes('react-router')) return 'react-vendor'
           if (id.includes('firebase')) return 'firebase-vendor'
           if (id.includes('zustand')) return 'zustand-vendor'
-          if (id.includes('katex') || id.includes('react-katex')) return 'katex-vendor'
           if (id.includes('syntax-highlighter') || id.includes('highlight')) return 'code-vendor'
         },
       },

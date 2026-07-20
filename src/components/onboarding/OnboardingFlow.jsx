@@ -31,29 +31,50 @@ export default function OnboardingFlow() {
   const [selectedUseCase, setSelectedUseCase] = useState('')
   const [saving, setSaving] = useState(false)
 
+  async function completeOnboarding() {
+    const profileUpdates = {
+      name: name.trim() || user?.profile?.name || user?.displayName || '',
+      language,
+      useCase: selectedUseCase || user?.profile?.useCase || '',
+      onboarded: true,
+    }
+
+    if (user?.uid) {
+      try {
+        await updateProfile(user.uid, profileUpdates)
+      } catch (err) {
+        console.error('Onboarding save error:', err)
+      }
+    }
+
+    setUser({
+      ...(user || {}),
+      profile: {
+        ...(user?.profile || {}),
+        ...profileUpdates,
+      },
+    })
+
+    navigate('/chat')
+  }
+
   async function handleFinish() {
+    if (saving) return
+
     setSaving(true)
     try {
-      await updateProfile(user.uid, {
-        name,
-        language,
-        useCase: selectedUseCase,
-        onboarded: true,
-      })
-      setUser({
-        ...user,
-        profile: {
-          ...user.profile,
-          name,
-          language,
-          useCase: selectedUseCase,
-          onboarded: true,
-        },
-      })
-      navigate('/chat')
-    } catch (err) {
-      console.error('Onboarding save error:', err)
-      navigate('/chat')
+      await completeOnboarding()
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function skip() {
+    if (saving) return
+
+    setSaving(true)
+    try {
+      await completeOnboarding()
     } finally {
       setSaving(false)
     }
@@ -61,10 +82,6 @@ export default function OnboardingFlow() {
 
   function next() {
     setStep((s) => s + 1)
-  }
-
-  function skip() {
-    navigate('/chat')
   }
 
   return (

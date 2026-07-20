@@ -1,6 +1,7 @@
 import { lazy, Suspense } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { useAuth } from './hooks/useAuth'
+import { useUserStore } from './store/userStore'
 
 // Always loaded — critical path
 import LoginPage from './pages/LoginPage'
@@ -24,9 +25,12 @@ function Spinner() {
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth()
+  const userStoreUser = useUserStore((s) => s.user)
+  const activeUser = userStoreUser || user
+
   if (loading) return <Spinner />
-  if (!user) return <Navigate to="/login" replace />
-  if (!user.profile?.onboarded && window.location.pathname !== '/onboarding') {
+  if (!activeUser) return <Navigate to="/login" replace />
+  if (!activeUser.profile?.onboarded && window.location.pathname !== '/onboarding') {
     return <Navigate to="/onboarding" replace />
   }
   return children

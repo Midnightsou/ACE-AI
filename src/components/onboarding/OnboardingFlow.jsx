@@ -31,53 +31,54 @@ export default function OnboardingFlow() {
   const [selectedUseCase, setSelectedUseCase] = useState('')
   const [saving, setSaving] = useState(false)
 
-  async function completeOnboarding() {
-    const profileUpdates = {
-      name: name.trim() || user?.profile?.name || user?.displayName || '',
-      language,
-      useCase: selectedUseCase || user?.profile?.useCase || '',
-      onboarded: true,
-    }
-
-    if (user?.uid) {
-      try {
-        await updateProfile(user.uid, profileUpdates)
-      } catch (err) {
-        console.error('Onboarding save error:', err)
-      }
-    }
-
-    setUser({
-      ...(user || {}),
-      profile: {
-        ...(user?.profile || {}),
-        ...profileUpdates,
-      },
-    })
-
-    navigate('/chat')
-  }
-
   async function handleFinish() {
     if (saving) return
 
     setSaving(true)
     try {
-      await completeOnboarding()
+      const updates = {
+        name,
+        language,
+        useCase: selectedUseCase,
+        onboarded: true,
+      }
+
+      await updateProfile(user.uid, updates)
+
+      // Update local Zustand state immediately; do not wait for the auth listener.
+      setUser({
+        ...user,
+        profile: {
+          ...user?.profile,
+          ...updates,
+        },
+      })
+
+      navigate('/chat', { replace: true })
+    } catch (err) {
+      console.error('Onboarding save error:', err)
+      // Let the user continue even if the profile save fails.
+      navigate('/chat', { replace: true })
     } finally {
       setSaving(false)
     }
   }
 
-  async function skip() {
+  function handleSkip() {
     if (saving) return
 
-    setSaving(true)
-    try {
-      await completeOnboarding()
-    } finally {
-      setSaving(false)
-    }
+    // Mark as onboarded locally so the router does not loop.
+    setUser({
+      ...user,
+      profile: {
+        ...user?.profile,
+        onboarded: true,
+      },
+    })
+
+    // Persist in the background without blocking navigation.
+    updateProfile(user.uid, { onboarded: true }).catch(console.error)
+    navigate('/chat', { replace: true })
   }
 
   function next() {
@@ -124,7 +125,7 @@ export default function OnboardingFlow() {
                 Get started
               </button>
               <button
-                onClick={skip}
+                onClick={handleSkip}
                 className="text-sm text-zinc-400 hover:text-zinc-600 transition-colors"
               >
                 Skip setup

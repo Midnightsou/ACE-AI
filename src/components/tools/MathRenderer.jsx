@@ -1,106 +1,156 @@
 import 'katex/dist/katex.min.css'
 import { InlineMath, BlockMath } from 'react-katex'
 
-// Fix LaTeX that the model outputs without proper braces
+// The most important function — fix malformed LaTeX before KaTeX sees it
 function fixLatex(expr) {
   if (!expr) return ''
 
-  return expr
-    // Fix \frac without braces: \frac\pi180 → \frac{\pi}{180}
-    .replace(/\\frac([^{{\s])([^{{\s}]+)\s*([^{{\s}]+)/g, (_, a, b, c) => {
-      return `\\frac{${a}${b}}{${c}}`
-    })
-    // Fix \frac{x}y → \frac{x}{y}
-    .replace(/\\frac(\{[^}]+\})([^{{\s}])/g, (_, num, den) => {
-      return `\\frac${num}{${den}}`
-    })
-    // Fix \text without braces: \textradians → \text{radians}
-    .replace(/\\text([a-zA-Z]+)/g, (_, word) => `\\text{${word}}`)
-    // Fix \sqrt without braces when followed by single char
-    .replace(/\\sqrt([^{{\s}(])/g, (_, c) => `\\sqrt{${c}}`)
-    // Remove duplicate expressions like \frac\pi4\frac\pi4
-    .replace(/(.{10,})\1/g, '$1')
+  let result = expr
     .trim()
+    // Remove duplicate expressions the model sometimes outputs
+    .replace(/^(.{5,}?)\s*\1$/, '$1')
+
+  // Fix \frac without braces — most common issue
+  // Pattern: \frac followed by non-brace tokens
+  // \frac\pi180 → \frac{\pi}{180}
+  // \frac45\pi180 → \frac{45\pi}{180} — harder case, handle step by step
+
+  // First pass: \frac{x}y → \frac{x}{y} (second arg missing brace)
+  result = result.replace(/\\frac(\{[^}]*\})([^{\\$\s])/g, '\\frac$1{$2}')
+
+  // Second pass: \fracAB where A and B are single tokens (no braces at all)
+  // Match \frac followed by two non-brace groups separated by nothing
+  result = result.replace(
+    /\\frac([^{\\$\s]+)\s*([^{\\$\s]+)/g,
+    (match, num, den) => {
+      // If either already has braces, skip
+      if (num.startsWith('{') || den.startsWith('{')) return match
+      return `\\frac{${num}}{${den}}`
+    }
+  )
+
+  // Fix \text without braces: \textradians → \text{radians}
+  result = result.replace(/\\text([a-zA-Z]+)/g, '\\text{$1}')
+
+  // Fix \sqrt without braces for single chars: \sqrtx → \sqrt{x}
+  result = result.replace(/\\sqrt([^{(\\$\s])/g, '\\sqrt{$1}')
+
+  // Fix common broken commands from OCR/copy-paste
+  const repairs = [
+    [/\\f\s*r\s*a\s*c/g, '\\frac'],
+    [/\\o\s*m\s*e\s*g\s*a/g, '\\omega'],
+    [/\\a\s*l\s*p\s*h\s*a/g, '\\alpha'],
+    [/\\b\s*e\s*t\s*a/g, '\\beta'],
+    [/\\g\s*a\s*m\s*m\s*a/g, '\\gamma'],
+    [/\\p\s*s\s*i/g, '\\psi'],
+    [/\\h\s*b\s*a\s*r/g, '\\hbar'],
+    [/\\n\s*a\s*b\s*l\s*a/g, '\\nabla'],
+    [/\\p\s*a\s*r\s*t\s*i\s*a\s*l/g, '\\partial'],
+    [/\\s\s*q\s*r\s*t/g, '\\sqrt'],
+    [/\\i\s*n\s*f\s*t\s*y/g, '\\infty'],
+    [/\\s\s*u\s*m/g, '\\sum'],
+    [/\\i\s*n\s*t/g, '\\int'],
+    [/\\l\s*a\s*m\s*b\s*d\s*a/g, '\\lambda'],
+    [/\\p\s*i(?!\s*{)/g, '\\pi'],
+    [/\\t\s*h\s*e\s*t\s*a/g, '\\theta'],
+  ]
+
+  repairs.forEach(([from, to]) => {
+    result = result.replace(from, to)
+  })
+
+  return result
 }
 
 function normalizeLatex(text) {
   if (!text) return ''
 
-  return text
-    // Convert \[ \] display blocks (multiline)
-    .replace(/\\\[([\s\S]+?)\\\]/gs, (_, inner) => `\n$$${inner.trim()}$$\n`)
-    // Convert \( \) inline
-    .replace(/\\\(([^]*?)\\\)/gs, (_, inner) => `$${inner.trim()}$`)
-    // Strip markdown
+  // Step 1: Convert \[...\] to $$...$$
+  let result = text.replace(/\\\[([\s\S]*?)\\\]/gs, (_, inner) => {
+    return `\n$$${inner.trim()}$$\n`
+  })
+
+  // Step 2: Convert \(...\) to $...$
+  result = result.replace(/\\\(([\s\S]*?)\\\)/gs, (_, inner) => {
+    return `$${inner.trim()}$`
+  })
+
+  // Step 3: Strip markdown formatting
+  result = result
     .replace(/\*\*(.+?)\*\*/g, '$1')
     .replace(/\*(.+?)\*/g, '$1')
     .replace(/^#{1,6}\s+/gm, '')
     .replace(/^---+$/gm, '')
-    // Remove duplicate LaTeX lines (model sometimes outputs same line twice)
-    .split('\n')
-    .filter((line, i, arr) => {
-      const trimmed = line.trim()
-      if (!trimmed) return true
-      // Remove if previous non-empty line is identical
-      const prev = arr.slice(0, i).reverse().find((l) => l.trim())
-      return trimmed !== prev?.trim()
-    })
-    .join('\n')
+
+  // Step 4: Remove consecutive duplicate lines (model often outputs same line twice)
+  const lines = result.split('\n')
+  const deduped = []
+  for (let i = 0; i < lines.length; i++) {
+    const trimmed = lines[i].trim()
+    const prevTrimmed = deduped[deduped.length - 1]?.trim()
+    // Skip if this line is identical to previous non-empty line
+    if (trimmed && trimmed === prevTrimmed) continue
+    deduped.push(lines[i])
+  }
+
+  return deduped.join('\n')
 }
 
-function parseLatexParts(text) {
+function parseContent(text) {
   const parts = []
-  // Match $$...$$ first (display), then $...$ (inline)
-  const regex = /\$\$([\s\S]+?)\$\$|\$([^\n$]+?)\$/g
+  const regex = /\$\$([\s\S]+?)\$\$|\$([^$\n]+?)\$/g
   let lastIndex = 0
   let match
 
   while ((match = regex.exec(text)) !== null) {
+    // Text before this match
     if (match.index > lastIndex) {
-      const textContent = text.slice(lastIndex, match.index)
-      if (textContent.trim()) {
-        parts.push({ type: 'text', content: textContent })
-      }
+      const textChunk = text.slice(lastIndex, match.index)
+      if (textChunk) parts.push({ type: 'text', content: textChunk })
     }
 
     if (match[1] !== undefined) {
+      // Display math $$...$$
       parts.push({ type: 'block', content: fixLatex(match[1].trim()) })
     } else if (match[2] !== undefined) {
+      // Inline math $...$
       parts.push({ type: 'inline', content: fixLatex(match[2].trim()) })
     }
 
     lastIndex = match.index + match[0].length
   }
 
+  // Remaining text
   if (lastIndex < text.length) {
-    const remaining = text.slice(lastIndex)
-    if (remaining.trim()) {
-      parts.push({ type: 'text', content: remaining })
-    }
+    parts.push({ type: 'text', content: text.slice(lastIndex) })
   }
 
   return parts
 }
 
-function SafeInlineMath({ math }) {
+function RenderInline({ math }) {
   try {
     return <InlineMath math={math} />
-  } catch {
-    // If KaTeX fails, show raw expression
-    return <code className="text-violet-700 text-sm font-mono bg-violet-50 px-1 rounded">{math}</code>
+  } catch (e) {
+    // KaTeX failed — show as styled code rather than crashing
+    return (
+      <code className="text-sm font-mono text-violet-700 bg-violet-50 px-1.5 py-0.5 rounded">
+        {math}
+      </code>
+    )
   }
 }
 
-function SafeBlockMath({ math }) {
+function RenderBlock({ math }) {
   try {
     return (
-      <span className="block my-4 overflow-x-auto text-center py-2">
+      <span className="block my-4 overflow-x-auto py-2 text-center">
         <BlockMath math={math} />
       </span>
     )
-  } catch {
+  } catch (e) {
     return (
-      <code className="block text-violet-700 text-sm font-mono bg-violet-50 p-3 rounded-xl my-2 text-center">
+      <code className="block text-sm font-mono text-violet-700 bg-violet-50 p-4 rounded-xl my-3 text-center overflow-x-auto">
         {math}
       </code>
     )
@@ -111,14 +161,22 @@ export default function MathRenderer({ text }) {
   if (!text) return null
 
   const normalized = normalizeLatex(text)
-  const parts = parseLatexParts(normalized)
+  const parts = parseContent(normalized)
 
   return (
     <span>
       {parts.map((part, i) => {
-        if (part.type === 'block') return <SafeBlockMath key={i} math={part.content} />
-        if (part.type === 'inline') return <SafeInlineMath key={i} math={part.content} />
-        return <span key={i} className="whitespace-pre-wrap">{part.content}</span>
+        if (part.type === 'block') {
+          return <RenderBlock key={i} math={part.content} />
+        }
+        if (part.type === 'inline') {
+          return <RenderInline key={i} math={part.content} />
+        }
+        return (
+          <span key={i} className="whitespace-pre-wrap leading-relaxed">
+            {part.content}
+          </span>
+        )
       })}
     </span>
   )

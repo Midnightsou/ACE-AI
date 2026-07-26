@@ -30,9 +30,18 @@ function ProtectedRoute({ children }) {
 
   if (loading) return <Spinner />
   if (!activeUser) return <Navigate to="/login" replace />
-  if (!activeUser.profile?.onboarded && window.location.pathname !== '/onboarding') {
+
+  const isOnboarding = window.location.pathname === '/onboarding'
+  const needsOnboarding = activeUser.profile && !activeUser.profile.onboarded
+
+  if (needsOnboarding && !isOnboarding) {
     return <Navigate to="/onboarding" replace />
   }
+
+  if (!needsOnboarding && isOnboarding) {
+    return <Navigate to="/chat" replace />
+  }
+
   return children
 }
 

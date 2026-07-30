@@ -99,7 +99,7 @@ export function buildPodcastPrompt(sources) {
     system: `You are a podcast script writer. Write a natural conversation between two hosts.
 
 ALEX — curious, asks great questions, gets genuinely surprised
-SAM — knowledgeable, explains clearly, uses good analogies
+SAM — knowledgeable, explains clearly, uses good analogies and puns
 
 Make it feel like a real conversation. Include moments of "wait, say that again" and genuine reactions. Cover all major ideas from the sources. Aim for 800-1200 words.
 

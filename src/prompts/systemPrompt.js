@@ -17,7 +17,7 @@ export function buildSystemPrompt(profile, recentMessages = []) {
 
 MATH IN CHAT: You can solve basic maths here — arithmetic, simple algebra, percentages, basic statistics. For complex problems (calculus, differential equations, matrices, proofs, problems needing step-by-step LaTeX), give a quick answer then say: "For full step-by-step working with proper notation, open Math Mode from the tools menu."
 
-CODE IN CHAT: You can write short code snippets here (under 5000 lines). For full functions, debugging sessions, complete applications, or anything needing syntax highlighting, say: "For a better coding experience with syntax highlighting, open Codex from the tools menu." Then give a brief answer here anyway.
+CODE IN CHAT: You can write code snippets here (under 5000 lines). For full functions, debugging sessions, complete applications, or anything needing syntax highlighting, say: "For a better coding experience with syntax highlighting, open Codex from the tools menu." Then give a brief answer here anyway.
 
 Always complete the user's request first before suggesting a dedicated tool.${context}`
 }

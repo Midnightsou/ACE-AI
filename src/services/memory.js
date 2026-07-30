@@ -218,3 +218,42 @@ export async function updateStreak(uid) {
     lastStreakDate: today,
   })
 }
+// dojo session saving
+export async function saveDojoSession(uid, data) {
+  const ref = collection(db, 'students', uid, 'conversations')
+  
+  // Find existing dojo session or create new one
+  const existing = await getDocs(
+    query(ref, where('toolId', '==', 'dojo'), orderBy('updatedAt', 'desc'), limit(1))
+  )
+
+  const safeData = {
+    generatedContent: data.generatedContent || {},
+    sourceMetadata: data.sourceMetadata || [],
+    // Truncate any large generated content
+    ...Object.fromEntries(
+      Object.entries(data.generatedContent || {}).map(([k, v]) => [
+        k, v.length > 5000 ? v.slice(0, 5000) + '\n[truncated]' : v
+      ])
+    ),
+  }
+
+  if (!existing.empty) {
+    await updateDoc(existing.docs[0].ref, {
+      savedState: JSON.stringify(safeData),
+      updatedAt: serverTimestamp(),
+    })
+  } else {
+    await addDoc(ref, {
+      type: 'tool',
+      toolId: 'dojo',
+      toolName: 'Dojo',
+      icon: '🥋',
+      title: 'Dojo Session',
+      savedState: JSON.stringify(safeData),
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    })
+    invalidateConversationCache(uid)
+  }
+}

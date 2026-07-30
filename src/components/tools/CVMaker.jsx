@@ -1,5 +1,6 @@
 import { useRef, useEffect, useState } from 'react'
 import { useCVMakerStore } from '../../store/cvStore'
+import { useUserStore } from '../../store/userStore'
 import { useTool } from '../../hooks/useTool'
 import { useToolSession } from '../../hooks/useToolSession'
 import { useLocation } from 'react-router-dom'
@@ -17,43 +18,50 @@ const tool = getToolById('cv-maker')
 const STEPS = ['Personal', 'Experience', 'Education', 'Skills', 'Style', 'Preview']
 
 export default function CVMaker() {
-   const location = useLocation()
-    const { saveSession, loadSession, restoring, resetSession } = useToolSession('cv-maker', 'CV Maker', '📄')
+  // ── All hooks must be first ──────────────────────
+  const location = useLocation()
+  const { saveSession, loadSession, restoring } = useToolSession('cv-maker', 'CV Maker', '📄')
 
-  const {
-    step, setStep,
-    form, updateForm, setForm,
-    style, setStyle,
-    a, setOutput,
-    liveCV, setLiveCV,
-    reset,
-  } = useCVMakerStore()
+  const step = useCVMakerStore((s) => s.step)
+  const form = useCVMakerStore((s) => s.form)
+  const style = useCVMakerStore((s) => s.style)
+  const output = useCVMakerStore((s) => s.output)
+  const liveCV = useCVMakerStore((s) => s.liveCV)
+  const setStep = useCVMakerStore((s) => s.setStep)
+  const setForm = useCVMakerStore((s) => s.setForm)
+  const updateForm = useCVMakerStore((s) => s.updateForm)
+  const setStyle = useCVMakerStore((s) => s.setStyle)
+  const setOutput = useCVMakerStore((s) => s.setOutput)
+  const setLiveCV = useCVMakerStore((s) => s.setLiveCV)
+  const reset = useCVMakerStore((s) => s.reset)
+
+  const user = useUserStore((s) => s.user)
+
 
   useEffect(() => {
-  const sid = location.state?.sessionId
-  if (!sid) return
-  loadSession(sid).then((saved) => {
-    if (!saved) return
-    if (saved.form) setForm(saved.form)
-    if (saved.style) setStyle(saved.style)
-    if (saved.output) {
-      setOutput(saved.output)
-      setLiveCV(saved.output)
-      setStep(5) // Jump to output step
-    }
-  })
-}, [location.state?.sessionId])
+    const sid = location.state?.sessionId
+    if (!sid) return
+    loadSession(sid).then((saved) => {
+      if (!saved) return
+      if (saved.form) setForm(saved.form)
+      if (saved.style) setStyle(saved.style)
+      if (saved.output) {
+        setOutput(saved.output)
+        setLiveCV(saved.output)
+        setStep(3)
+      }
+    })
+  }, [location.state?.sessionId])
+
 
 
 
   // Save to Firestore whenever output changes
-  useEffect(() => {
-  if (!output) return
-  const state = { form, style, output, step }
-  const name = form.fullName || form.targetRole || 'Untitled'
-  saveSession(state, `CV — ${name}`)
-}, [output])
-
+   useEffect(() => {
+    if (!output) return
+    const title = `CV — ${form.fullName || form.targetRole || 'Untitled'}`
+    saveSession({ form, style, output, step }, title)
+  }, [output])
 
   const { streaming, loading, error, generate } = useTool('cv-maker')
   const cvRef = useRef(null)

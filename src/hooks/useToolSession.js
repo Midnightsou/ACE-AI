@@ -4,53 +4,14 @@ import {
   createFormToolSession,
   updateFormToolSession,
   loadFormToolSession,
-  invalidateConversationCache,
 } from '../services/memory'
+import { saveLargeContent, loadLargeContent } from '../services/storageServices'
 
-// Fields that contain large document content — never save these
-const LARGE_CONTENT_FIELDS = [
-  'cvText', 'jobDescription', 'fileContent', 'documentText',
-  'content', 'fullContent', 'extractedText', 'pdfText',
-]
+// Fields that might contain large content — store in Firebase Storage, not Firestore
+const LARGE_FIELDS = ['output', 'essay', 'analysisOutput', 'liveCV', 'outline']
 
-function stripLargeContent(state) {
-  if (!state) return state
-
-  const stripped = { ...state }
-
-  // Strip from top-level
-  LARGE_CONTENT_FIELDS.forEach((field) => {
-    if (stripped[field]) {
-      stripped[field] = '[document_stripped]'
-    }
-  })
-
-  // Strip from nested form object
-  if (stripped.form) {
-    stripped.form = { ...stripped.form }
-    LARGE_CONTENT_FIELDS.forEach((field) => {
-      if (stripped.form[field] && stripped.form[field].length > 500) {
-        stripped.form[field] = '[document_stripped]'
-      }
-    })
-  }
-
-  // Truncate very long outputs to 5000 chars (enough to display)
-  if (stripped.output && stripped.output.length > 5000) {
-    stripped.output = stripped.output.slice(0, 5000) + '\n\n[truncated — full version was longer]'
-  }
-  if (stripped.liveCV && stripped.liveCV.length > 5000) {
-    stripped.liveCV = stripped.liveCV.slice(0, 5000)
-  }
-  if (stripped.essay && stripped.essay.length > 8000) {
-    stripped.essay = stripped.essay.slice(0, 8000) + '\n\n[truncated]'
-  }
-  if (stripped.analysisOutput && stripped.analysisOutput.length > 5000) {
-    stripped.analysisOutput = stripped.analysisOutput.slice(0, 5000)
-  }
-
-  return stripped
-}
+// Document fields in form — always strip from Firestore
+const DOC_FIELDS = ['cvText', 'jobDescription', 'fileContent']
 
 export function useToolSession(toolId, toolName, icon) {
   const user = useUserStore((s) => s.user)
@@ -61,21 +22,43 @@ export function useToolSession(toolId, toolName, icon) {
   async function saveSession(state, title) {
     if (!user?.uid) return null
 
-    // Strip large document content before saving
-    const safeState = stripLargeContent(state)
-
     try {
-      if (!sessionId) {
-        const newId = await createFormToolSession(
-          user.uid, toolId, toolName, icon, title
-        )
-        setSessionId(newId)
-        await updateFormToolSession(user.uid, newId, title, safeState)
-        return newId
-      } else {
-        await updateFormToolSession(user.uid, sessionId, title, safeState)
-        return sessionId
+      let currentId = sessionId
+      if (!currentId) {
+        currentId = await createFormToolSession(user.uid, toolId, toolName, icon, title)
+        setSessionId(currentId)
       }
+
+      // Separate large content from metadata
+      const largeFields = {}
+      const safeState = { ...state }
+
+      for (const field of LARGE_FIELDS) {
+        if (safeState[field] && safeState[field].length > 2000) {
+          // Save to Firebase Storage
+          const url = await saveLargeContent(user.uid, currentId, field, safeState[field])
+          largeFields[`${field}_url`] = url
+          // Keep a preview in Firestore
+          safeState[field] = safeState[field].slice(0, 200) + '...[stored]'
+        }
+      }
+
+      // Strip document content from form
+      if (safeState.form) {
+        safeState.form = { ...safeState.form }
+        DOC_FIELDS.forEach((f) => {
+          if (safeState.form[f] && safeState.form[f].length > 500) {
+            safeState.form[f] = '[document_stripped]'
+          }
+        })
+      }
+
+      await updateFormToolSession(user.uid, currentId, title, {
+        ...safeState,
+        ...largeFields, // Store URLs in Firestore
+      })
+
+      return currentId
     } catch (err) {
       console.error('saveSession error:', err)
       return null
@@ -85,14 +68,35 @@ export function useToolSession(toolId, toolName, icon) {
   async function loadSession(sid) {
     if (!user?.uid || !sid) return null
     setRestoring(true)
+
     try {
       const state = await loadFormToolSession(user.uid, sid)
-      if (state) {
-        setSessionId(sid)
-        // Check if document content was stripped
-        const hasStripped = JSON.stringify(state).includes('[document_stripped]')
-        if (hasStripped) setDocumentStripped(true)
+      if (!state) return null
+
+      setSessionId(sid)
+
+      // Check if any content was stored in Storage
+      let hasStripped = false
+
+      // Load large content from Storage URLs
+      for (const field of LARGE_FIELDS) {
+        const urlKey = `${field}_url`
+        if (state[urlKey]) {
+          try {
+            state[field] = await loadLargeContent(state[urlKey])
+            hasStripped = true
+          } catch {
+            state[field] = null
+          }
+        }
       }
+
+      // Also check for stripped document fields
+      const stateStr = JSON.stringify(state)
+      if (stateStr.includes('[document_stripped]')) hasStripped = true
+
+      if (hasStripped) setDocumentStripped(true)
+
       return state
     } catch (err) {
       console.error('loadSession error:', err)

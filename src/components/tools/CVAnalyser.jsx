@@ -1,4 +1,6 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
+import { useLocation } from 'react-router-dom'
+import { useToolSession } from '../../hooks/useToolSession'
 import { useCVAnalyserStore } from '../../store/cvStore'
 import { useTool } from '../../hooks/useTool'
 import ToolLayout from './ToolLayout'
@@ -10,7 +12,6 @@ import { parseCV, extractHeaderInfo } from '../../utils/cvParser'
 import { getToolById } from '../../tools/registry'
 import { defaultStyle } from '../../tools/cvStyles'
 import { useCVChat } from '../../hooks/useCVChat'
-import { complete, MODELS } from '../../services/deepseekClient'
 import CVChat from './CVChat'
 const tool = getToolById('cv-analyser')
 const STEPS = ['Your CV', 'Job Description', 'Style', 'Analyse']
@@ -22,6 +23,10 @@ import { extractTextFromImage } from '../../services/ocr'
 export default function CVAnalyser() {
   const rewriter = useTool('cv-analyser')
   const analyser = useTool('cv-analyser-analysis')
+
+  // ── Session hooks ────────────────────────────────
+  const location = useLocation()
+  const { saveSession, loadSession, restoring } = useToolSession('cv-analyser', 'CV Analyser', '🔍')
 
   const {
     step, setStep,
@@ -42,6 +47,31 @@ export default function CVAnalyser() {
   const [fileLoading, setFileLoading] = useState(false)
 
   const cvChat = useCVChat((updatedCV) => setLiveCV(updatedCV))
+
+  // ── Session restore ───────────────────────────────
+  useEffect(() => {
+    const sid = location.state?.sessionId
+    if (!sid) return
+    loadSession(sid).then((saved) => {
+      if (!saved) return
+      if (saved.form) {
+        Object.entries(saved.form).forEach(([k, v]) => {
+          if (v !== '[document_stripped]') updateForm(k, v)
+        })
+      }
+      if (saved.output) setOutput(saved.output)
+      if (saved.analysisOutput) setAnalysisOutput(saved.analysisOutput)
+      if (saved.mode) setMode(saved.mode)
+      if (saved.step !== undefined) setStep(saved.step)
+    })
+  }, [location.state?.sessionId])
+
+  // ── Auto-save ─────────────────────────────────────
+  useEffect(() => {
+    if (!output && !analysisOutput) return
+    const title = `CV Analysis — ${form.targetRole || 'Untitled'}`
+    saveSession({ form, output, analysisOutput, mode, step }, title)
+  }, [output, analysisOutput])
 
   function canProceed() {
     if (step === 0) return form.cvText.trim().length > 20
@@ -143,39 +173,6 @@ export default function CVAnalyser() {
       setDownloading(false)
     }
   }
-
-  async function extractNameFromCV(cvText) {
-  try {
-    const name = await complete({
-      model: MODELS.chat,
-      messages: [{
-        role: 'user',
-        content: `Extract the full name from the top of this CV. Return ONLY the name, nothing else. If you cannot find a name, return "Unknown".
-
-CV text (first 500 chars):
-${cvText.slice(0, 500)}`,
-      }],
-      temperature: 0,
-      maxTokens: 20,
-    })
-    return name.trim().replace(/^(name:|candidate:|applicant:)/i, '').trim()
-  } catch {
-    return ''
-  }
-}
-
-// In your file upload handler, after extracting text:
-async function handleFileUpload(file) {
-  const text = await extractTextFromPDF(file) // or OCR for images
-  updateForm('cvText', text)
-  updateForm('fileName', file.name)
-
-  // Auto-extract and fill the name
-  const extractedName = await extractNameFromCV(text)
-  if (extractedName && extractedName !== 'Unknown') {
-    updateForm('fullName', extractedName)
-  }
-}
 
   function resetAll() {
     reset()

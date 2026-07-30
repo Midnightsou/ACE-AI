@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useRef, useState, useEffect } from 'react'
 import { useEssayStore } from '../../store/essayStore'
 import { useEssayChat } from '../../hooks/useEssayChat'
 import { useLocation } from 'react-router-dom'
@@ -8,34 +8,10 @@ import { buildOutlinePrompt, buildSectionPrompt } from '../../prompts/tools/essa
 import { getToolById } from '../../tools/registry'
 import { saveToolSession } from '../../services/memory'
 import { useUserStore } from '../../store/userStore'
+import { streamCompletion, MODELS } from '../../services/deepseekClient'
 
 const tool = getToolById('essay-writer')
 
-const location = useLocation()
-const { saveSession, loadSession, restoring, resetSession } = useToolSession('essay-writer', 'Essay Writer', '📝')
-
-
-useEffect(() => {
-  const sid = location.state?.sessionId
-  if (!sid) return
-  loadSession(sid).then((saved) => {
-    if (!saved) return
-    if (saved.form) Object.entries(saved.form).forEach(([k, v]) => updateForm(k, v))
-    if (saved.outline) setOutline(saved.outline)
-    if (saved.essay) {
-      setEssay(saved.essay)
-      setStage('essay')
-      setStep(2)
-    }
-  })
-}, [location.state?.sessionId])
-
-useEffect(() => {
-  if (!essay && !outline) return
-  const state = { form, outline, essay, step, stage }
-  const title = `Essay — ${form.topic?.slice(0, 40) || 'Untitled'}`
-  saveSession(state, title)
-}, [essay, outline])
 
 const ESSAY_TYPES = ['Argumentative', 'Expository', 'Narrative', 'Analytical', 'Descriptive', 'Persuasive', 'Research Paper', 'Reflective']
 const ACADEMIC_LEVELS = ['High School', 'Undergraduate', 'Graduate', 'Professional']
@@ -71,55 +47,6 @@ const CHAT_SUGGESTIONS = [
 
 const STEPS = ['Topic', 'Word Count', 'Essay Type', 'Writing Style', 'References']
 
-const BASE_URL = 'https://api.deepseek.com/v1/chat/completions'
-
-async function streamText(systemPrompt, userPrompt, onChunk) {
-  const apiKey = import.meta.env.VITE_FEATHERLESS_API_KEY
-  const response = await fetch(BASE_URL, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: 'deepseek-ai/DeepSeek-V3.2',
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt },
-      ],
-      temperature: 0.75,
-      max_tokens: 4096,
-      stream: true,
-    }),
-  })
-
-  if (!response.ok) throw new Error(`Request failed: ${response.status}`)
-
-  const reader = response.body.getReader()
-  const decoder = new TextDecoder()
-  let fullContent = ''
-
-  while (true) {
-    const { done, value } = await reader.read()
-    if (done) break
-    const chunk = decoder.decode(value, { stream: true })
-    for (const line of chunk.split('\n')) {
-      const trimmed = line.trim()
-      if (!trimmed || trimmed === 'data: [DONE]') continue
-      if (!trimmed.startsWith('data: ')) continue
-      try {
-        const json = JSON.parse(trimmed.slice(6))
-        const delta = json.choices?.[0]?.delta?.content
-        if (delta) {
-          fullContent += delta
-          onChunk?.(fullContent)
-        }
-      } catch { }
-    }
-  }
-
-  return fullContent
-}
 
 function parseOutlineSections(outlineText) {
   const lines = outlineText.split('\n').map(l => l.trim()).filter(Boolean)
@@ -155,6 +82,31 @@ export default function EssayWriter() {
     stage, setStage,
     reset,
   } = useEssayStore()
+  const location = useLocation()
+  const { saveSession, loadSession } = useToolSession('essay-writer', 'Essay Writer', '📝')
+  // ── Session restore ───────────────────────────────
+  useEffect(() => {
+    const sid = location.state?.sessionId
+    if (!sid) return
+    loadSession(sid).then((saved) => {
+      if (!saved) return
+      if (saved.form) Object.entries(saved.form).forEach(([k, v]) => updateForm(k, v))
+      if (saved.outline) setOutline(saved.outline)
+      if (saved.essay) {
+        setEssay(saved.essay)
+        setStage('essay')
+        setStep(2)
+      }
+    })
+  }, [location.state?.sessionId])
+
+  useEffect(() => {
+    if (!essay && !outline) return
+    const state = { form, outline, essay, step, stage }
+    const title = `Essay — ${form.topic?.slice(0, 40) || 'Untitled'}`
+    saveSession(state, title)
+  }, [essay, outline])
+
 const user = useUserStore((s) => s.user)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
@@ -172,9 +124,18 @@ const user = useUserStore((s) => s.user)
     try {
       const { system, user } = buildOutlinePrompt(form)
       let result = ''
-      await streamText(system, user, (chunk) => {
-        result = chunk
-        setOutline(chunk)
+      await streamCompletion({
+        model: MODELS.chat,
+        messages: [
+          { role: 'system', content: system },
+          { role: 'user', content: user },
+        ],
+        temperature: 0.7,
+        maxTokens: 4096,
+        onChunk: (chunk) => {
+          result = chunk
+          setOutline(chunk)
+        },
       })
       setOutline(result)
       setStage('outline')
@@ -217,9 +178,18 @@ const user = useUserStore((s) => s.user)
       )
 
       let sectionContent = ''
-      await streamText(system, user, (chunk) => {
-        sectionContent = chunk
-        setLiveEssay(fullEssay + '\n\n' + chunk)
+      await streamCompletion({
+        model: MODELS.chat,
+        messages: [
+          { role: 'system', content: system },
+          { role: 'user', content: user },
+        ],
+        temperature: 0.7,
+        maxTokens: 4096,
+        onChunk: (chunk) => {
+          sectionContent = chunk
+          setLiveEssay(fullEssay + '\n\n' + chunk)
+        },
       })
 
       fullEssay += (fullEssay ? '\n\n' : '') + sectionContent

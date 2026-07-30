@@ -1,5 +1,6 @@
 import { initializeApp } from 'firebase/app'
 import { getAuth, GoogleAuthProvider } from 'firebase/auth'
+import { getStorage } from 'firebase/storage'
 import {
   initializeFirestore,
   persistentLocalCache,
@@ -19,6 +20,7 @@ const app = initializeApp(firebaseConfig)
 
 export const auth = getAuth(app)
 export const googleProvider = new GoogleAuthProvider()
+export const storage = getStorage(app)
 
 // Persistent cache — reads work offline, writes queue until reconnected
 export const db = initializeFirestore(app, {

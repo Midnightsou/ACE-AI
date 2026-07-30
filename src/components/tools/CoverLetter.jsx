@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useRef, useState, useEffect } from 'react'
 import { forwardRef } from 'react'
 import { useLocation } from 'react-router-dom'
 import { useToolSession } from '../../hooks/useToolSession'
@@ -16,38 +16,6 @@ import { defaultStyle } from '../../tools/cvStyles'
 
 const tool = getToolById('cover-letter')
 const TONES = ['Professional', 'Confident', 'Conversational', 'Creative', 'Formal']
-const location = useLocation()
-const { saveSession, loadSession, restoring, resetSession } = useToolSession('cover-letter', 'Cover Letter', '✉️')
-
-useEffect(() => {
-  const sid = location.state?.sessionId
-  if (!sid) return
-  loadSession(sid).then((saved) => {
-    if (!saved) return
-    if (saved.form) Object.entries(saved.form).forEach(([k, v]) => updateForm(k, v))
-    if (saved.output) {
-      setOutput(saved.output)
-      setLiveOutput(saved.output)
-      setStep(2)
-    }
-  })
-}, [location.state?.sessionId])
-
-useEffect(() => {
-  if (!output) return
-  const state = { form, output, step }
-  const title = `Cover Letter — ${form.company || form.role || 'Untitled'}`
-  saveSession(state, title)
-}, [output])
-
-const CHAT_SUGGESTIONS = [
-  'Make the opening more attention-grabbing',
-  'Make it sound more confident',
-  'Shorten it to 3 paragraphs',
-  'Strengthen the closing paragraph',
-  'Make the tone more conversational',
-  'Make it more specific to the company',
-]
 
 // ── Inline letter preview ──────────────────────────────
 function LetterPreview({ content, header, style, forwardedRef }) {
@@ -207,19 +175,51 @@ function LetterPreview({ content, header, style, forwardedRef }) {
 
 // ── Main component ─────────────────────────────────────
 export default function CoverLetter() {
+  const location = useLocation()
+  const { saveSession, loadSession } = useToolSession('cover-letter', 'Cover Letter', '✉️')
+
   const {
     form, updateForm,
     output, setOutput,
     liveOutput, setLiveOutput,
     reset,
   } = useCoverLetterStore()
-const user = useUserStore((s) => s.user)
+  const user = useUserStore((s) => s.user)
   const { streaming, loading, error, generate } = useTool('cover-letter')
   const [style, setStyle] = useState(defaultStyle)
   const [showStylePicker, setShowStylePicker] = useState(false)
   const letterRef = useRef(null)
 
   const chat = useCoverLetterChat((updated) => setLiveOutput(updated))
+
+  // ── Session restore ───────────────────────────────
+  useEffect(() => {
+    const sid = location.state?.sessionId
+    if (!sid) return
+    loadSession(sid).then((saved) => {
+      if (!saved) return
+      if (saved.form) Object.entries(saved.form).forEach(([k, v]) => updateForm(k, v))
+      if (saved.output) {
+        setOutput(saved.output)
+        setLiveOutput(saved.output)
+      }
+    })
+  }, [location.state?.sessionId])
+
+  useEffect(() => {
+    if (!output) return
+    const title = `Cover Letter — ${form.company || form.role || 'Untitled'}`
+    saveSession({ form, output }, title)
+  }, [output])
+
+  const CHAT_SUGGESTIONS = [
+    'Make the opening more attention-grabbing',
+    'Make it sound more confident',
+    'Shorten it to 3 paragraphs',
+    'Strengthen the closing paragraph',
+    'Make the tone more conversational',
+    'Make it more specific to the company',
+  ]
 
   async function handleGenerate() {
     const { system, user } = buildCoverLetterPrompt(form)
@@ -234,15 +234,15 @@ const user = useUserStore((s) => s.user)
   }
   const [result, setResult] = useState("");
 
-if (user?.uid && result) {
-  saveToolSession(
-    user.uid,
-    'cover-letter',
-    'Cover Letter',
-    `Cover Letter — ${form.company || form.role}`,
-    '✉️'
-  ).catch(() => {});
-}
+  if (user?.uid && result) {
+    saveToolSession(
+      user.uid,
+      'cover-letter',
+      'Cover Letter',
+      `Cover Letter — ${form.company || form.role}`,
+      '✉️'
+    ).catch(() => {});
+  }
 
   async function handleDownloadPDF() {
     if (!letterRef.current) return

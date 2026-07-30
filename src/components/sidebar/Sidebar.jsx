@@ -94,6 +94,7 @@ export default function Sidebar({ isOpen, onClose }) {
 
   if (isTool) {
     setActiveTool(convo.toolId)
+    setActiveConversationId(convo.id)
     clearToolStore(convo.toolId)
 
     // Chat-based tools (Codex, Math) load messages
@@ -252,7 +253,7 @@ export default function Sidebar({ isOpen, onClose }) {
                   conversations.map((convo) => {
                     const isTool = convo.type === 'tool'
                     const isActive = isTool
-                      ? activeTool === convo.toolId
+                      ? activeConversationId === convo.id
                       : activeConversationId === convo.id && activeTool === 'chat'
 
                     return (

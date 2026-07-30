@@ -1,6 +1,8 @@
-import { useRef } from 'react'
+import { useRef, useEffect, useState } from 'react'
 import { useCVMakerStore } from '../../store/cvStore'
 import { useTool } from '../../hooks/useTool'
+import { useToolSession } from '../../hooks/useToolSession'
+import { useLocation } from 'react-router-dom'
 import { useCVChat } from '../../hooks/useCVChat'
 import ToolLayout from './ToolLayout'
 import CVRenderer from './CVRenderer'
@@ -15,21 +17,49 @@ const tool = getToolById('cv-maker')
 const STEPS = ['Personal', 'Experience', 'Education', 'Skills', 'Style', 'Preview']
 
 export default function CVMaker() {
+   const location = useLocation()
+    const { saveSession, loadSession, restoring, resetSession } = useToolSession('cv-maker', 'CV Maker', '📄')
+
   const {
     step, setStep,
-    form, updateForm,
+    form, updateForm, setForm,
     style, setStyle,
-    output, setOutput,
+    a, setOutput,
     liveCV, setLiveCV,
     reset,
   } = useCVMakerStore()
 
+  useEffect(() => {
+  const sid = location.state?.sessionId
+  if (!sid) return
+  loadSession(sid).then((saved) => {
+    if (!saved) return
+    if (saved.form) setForm(saved.form)
+    if (saved.style) setStyle(saved.style)
+    if (saved.output) {
+      setOutput(saved.output)
+      setLiveCV(saved.output)
+      setStep(5) // Jump to output step
+    }
+  })
+}, [location.state?.sessionId])
+
+
+
+  // Save to Firestore whenever output changes
+  useEffect(() => {
+  if (!output) return
+  const state = { form, style, output, step }
+  const name = form.fullName || form.targetRole || 'Untitled'
+  saveSession(state, `CV — ${name}`)
+}, [output])
+
+
   const { streaming, loading, error, generate } = useTool('cv-maker')
   const cvRef = useRef(null)
-  const [downloading, setDownloading] = window.__react_useState_hack__ || [false, () => {}]
+  const [downloading, setDownloading] = useState(false)
 
-  // Use local state only for downloading since it doesn't need persistence
-  const [downloadingState, setDownloading2] = [false, (v) => {}]
+
 
   const cvChat = useCVChat((updatedCV) => setLiveCV(updatedCV))
 
@@ -79,10 +109,20 @@ export default function CVMaker() {
     setLiveCV('')
     setStep(0)
     setForm({
-      fullName: '', email: '', phone: '', location: '',
-      linkedin: '', targetRole: '', summary: '', experience: '',
-      education: '', skills: '', certifications: '', additional: '',
-    })
+  fullName: '',
+  email: '',
+  phone: '',
+  location: '',
+  linkedin: '',
+  targetRole: '',
+  summary: '',
+  experience: '',
+  education: '',
+  skills: '',
+  certifications: '',
+  hobbies: '',
+  additional: '',
+})
   }
 
   // Use liveCV (from chat refinements) or original output
@@ -94,7 +134,15 @@ export default function CVMaker() {
     <ToolLayout tool={tool}>
       <div className="max-w-3xl mx-auto px-4 py-6 flex flex-col gap-6">
 
+        {restoring && (
+          <div className="flex items-center gap-2 px-4 py-2 bg-violet-50 border-b border-violet-100 text-xs text-violet-600 flex-shrink-0">
+            <div className="w-3 h-3 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
+            Restoring your CV session...
+          </div>
+        )}
+
         {/* Step indicator */}
+
         <div className="flex items-center gap-1">
           {STEPS.map((s, i) => (
             <div key={s} className="flex-1">
@@ -276,10 +324,9 @@ export default function CVMaker() {
         {step === 5 && (
           <div className="flex flex-col gap-5">
 
-            {/* Generate button */}
-            {!currentCV && (
+            {/* Summary card + Generate button — shown only when no CV exists yet */}
+            {!output && !liveCV && (
               <>
-                {/* Summary card */}
                 <div className="bg-white border border-zinc-100 rounded-2xl p-5 shadow-sm flex flex-col gap-3">
                   <p className="text-sm font-semibold text-zinc-800">Ready to generate</p>
                   <div className="flex flex-col gap-2 text-sm">
@@ -318,41 +365,43 @@ export default function CVMaker() {
               </div>
             )}
 
-            {/* CV Preview + Chat */}
-            {currentCV && !streaming && (
+            {/* CV Preview — shows immediately when output or liveCV exists, even during streaming */}
+            {(output || liveCV) ? (
               <div className="flex flex-col gap-5">
 
-                {/* Action buttons */}
-                <div className="flex gap-3">
-                  <button
-                    onClick={handleDownloadPDF}
-                    disabled={downloading}
-                    className="flex-1 py-3 bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white text-sm font-medium rounded-xl transition-colors flex items-center justify-center gap-2"
-                  >
-                    {downloading ? (
-                      <>
-                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                        Exporting...
-                      </>
-                    ) : (
-                      <>
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                          <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/>
-                        </svg>
-                        Download PDF
-                      </>
-                    )}
-                  </button>
-                  <button
-                    onClick={handleStartOver}
-                    className="px-4 py-3 border border-zinc-200 text-zinc-600 text-sm rounded-xl hover:bg-zinc-50 transition-colors"
-                  >
-                    Start over
-                  </button>
-                </div>
+                {/* Action buttons — only show when not streaming */}
+                {!streaming && (
+                  <div className="flex gap-3">
+                    <button
+                      onClick={handleDownloadPDF}
+                      disabled={downloading}
+                      className="flex-1 py-3 bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white text-sm font-medium rounded-xl transition-colors flex items-center justify-center gap-2"
+                    >
+                      {downloading ? (
+                        <>
+                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                          Exporting...
+                        </>
+                      ) : (
+                        <>
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                            <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/>
+                          </svg>
+                          Download PDF
+                        </>
+                      )}
+                    </button>
+                    <button
+                      onClick={handleStartOver}
+                      className="px-4 py-3 border border-zinc-200 text-zinc-600 text-sm rounded-xl hover:bg-zinc-50 transition-colors"
+                    >
+                      Start over
+                    </button>
+                  </div>
+                )}
 
                 {/* CV preview */}
-                <div className="overflow-x-auto rounded-xl border border-zinc-200 shadow-sm">
+                <div id="cv-preview" className="overflow-x-auto rounded-xl border border-zinc-200 shadow-sm">
                   <div style={{ minWidth: '600px' }}>
                     <CVRenderer
                       ref={cvRef}
@@ -363,12 +412,22 @@ export default function CVMaker() {
                   </div>
                 </div>
 
-                {/* Chat refinement */}
-                <div className="bg-zinc-50 border border-zinc-200 rounded-2xl p-4">
-                  <CVChat
-                    currentCV={currentCV}
-                    onUpdate={cvChat}
-                  />
+                {/* Chat refinement — only show when not streaming */}
+                {!streaming && (
+                  <div className="bg-zinc-50 border border-zinc-200 rounded-2xl p-4">
+                    <CVChat
+                      currentCV={currentCV}
+                      onUpdate={cvChat}
+                    />
+                  </div>
+                )}
+              </div>
+            ) : (
+              /* Placeholder when no CV exists yet */
+              <div className="flex-1 flex items-center justify-center bg-zinc-50 rounded-xl border border-zinc-200 py-16">
+                <div className="text-center text-zinc-400">
+                  <p className="text-3xl mb-3">📄</p>
+                  <p className="text-sm">Your CV will appear here</p>
                 </div>
               </div>
             )}
@@ -388,7 +447,6 @@ export default function CVMaker() {
             )}
             <button
               onClick={() => setStep(step + 1)}
-              o
               disabled={!canProceed()}
               className="flex-1 py-3 bg-violet-600 hover:bg-violet-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-medium rounded-xl transition-colors"
             >
@@ -397,6 +455,6 @@ export default function CVMaker() {
           </div>
         )}
       </div>
-    </ToolLayout>
+    </ToolLayout> 
   )
 }

@@ -1,6 +1,8 @@
 import { useRef, useState } from 'react'
 import { useEssayStore } from '../../store/essayStore'
 import { useEssayChat } from '../../hooks/useEssayChat'
+import { useLocation } from 'react-router-dom'
+import { useToolSession } from '../../hooks/useToolSession'
 import ToolLayout from './ToolLayout'
 import { buildOutlinePrompt, buildSectionPrompt } from '../../prompts/tools/essayPrompt'
 import { getToolById } from '../../tools/registry'
@@ -9,7 +11,31 @@ import { useUserStore } from '../../store/userStore'
 
 const tool = getToolById('essay-writer')
 
+const location = useLocation()
+const { saveSession, loadSession, restoring, resetSession } = useToolSession('essay-writer', 'Essay Writer', '📝')
 
+
+useEffect(() => {
+  const sid = location.state?.sessionId
+  if (!sid) return
+  loadSession(sid).then((saved) => {
+    if (!saved) return
+    if (saved.form) Object.entries(saved.form).forEach(([k, v]) => updateForm(k, v))
+    if (saved.outline) setOutline(saved.outline)
+    if (saved.essay) {
+      setEssay(saved.essay)
+      setStage('essay')
+      setStep(2)
+    }
+  })
+}, [location.state?.sessionId])
+
+useEffect(() => {
+  if (!essay && !outline) return
+  const state = { form, outline, essay, step, stage }
+  const title = `Essay — ${form.topic?.slice(0, 40) || 'Untitled'}`
+  saveSession(state, title)
+}, [essay, outline])
 
 const ESSAY_TYPES = ['Argumentative', 'Expository', 'Narrative', 'Analytical', 'Descriptive', 'Persuasive', 'Research Paper', 'Reflective']
 const ACADEMIC_LEVELS = ['High School', 'Undergraduate', 'Graduate', 'Professional']

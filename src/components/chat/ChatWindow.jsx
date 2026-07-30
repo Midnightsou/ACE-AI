@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useChat } from '../../hooks/useChat'
 import { useChatStore } from '../../store/chatStore'
 import { useUserStore } from '../../store/userStore'
@@ -8,6 +8,8 @@ import InputBar from './InputBar'
 import FileContextBanner from './FileContextBanner'
 import StreamingBubble from './StreamingBubble'
 import ThemeToggle from '../ui/ThemeToggle'
+import { createShareLink } from '../../services/shareService'
+import { useConversationStore } from '../../store/conversationStore'
 
 const languageLabels = {
   english: 'English',
@@ -24,6 +26,31 @@ export default function ChatWindow() {
   const truncateFrom = useChatStore((s) => s.truncateFrom)
 
   const language = user?.profile?.language || 'english'
+  const activeConversationId = useConversationStore((s) => s.activeConversationId)
+  const activeConversation = useConversationStore((s) =>
+    s.conversations.find((c) => c.id === s.activeConversationId)
+  )
+  const [sharing, setSharing] = useState(false)
+  const [shareUrl, setShareUrl] = useState(null)
+
+  async function handleShare() {
+    if (!messages.length || !user?.uid) return
+    setSharing(true)
+    try {
+      const url = await createShareLink(
+        user.uid,
+        activeConversationId || 'temp',
+        messages,
+        activeConversation?.title || 'Ace Conversation'
+      )
+      setShareUrl(url)
+      await navigator.clipboard.writeText(url)
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setSharing(false)
+    }
+  }
 
   const handleEdit = useCallback(async (index, newContent) => {
     // Truncate messages from this index (removes the old message + all after it)
@@ -63,6 +90,21 @@ export default function ChatWindow() {
           <p className="text-sm font-semibold text-zinc-900">Ace</p>
           <p className="text-xs text-zinc-400">{languageLabels[language]} mode</p>
         </div>
+        <button
+          onClick={handleShare}
+          disabled={sharing || !messages.length}
+          className="flex items-center gap-1.5 text-xs text-zinc-400 hover:text-violet-600 transition-colors disabled:opacity-40"
+        >
+          {shareUrl ? '✓ Link copied!' : (
+            <>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
+                <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+              </svg>
+              Share
+            </>
+          )}
+        </button>
         <ThemeToggle className="ml-auto" />
       </div>
 

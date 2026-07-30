@@ -10,11 +10,13 @@ import { parseCV, extractHeaderInfo } from '../../utils/cvParser'
 import { getToolById } from '../../tools/registry'
 import { defaultStyle } from '../../tools/cvStyles'
 import { useCVChat } from '../../hooks/useCVChat'
+import { complete, MODELS } from '../../services/deepseekClient'
 import CVChat from './CVChat'
 const tool = getToolById('cv-analyser')
 const STEPS = ['Your CV', 'Job Description', 'Style', 'Analyse']
 import { extractTextFromPDF } from '../../services/pdf'
 import { extractTextFromImage } from '../../services/ocr'
+
 
 
 export default function CVAnalyser() {
@@ -141,6 +143,39 @@ export default function CVAnalyser() {
       setDownloading(false)
     }
   }
+
+  async function extractNameFromCV(cvText) {
+  try {
+    const name = await complete({
+      model: MODELS.chat,
+      messages: [{
+        role: 'user',
+        content: `Extract the full name from the top of this CV. Return ONLY the name, nothing else. If you cannot find a name, return "Unknown".
+
+CV text (first 500 chars):
+${cvText.slice(0, 500)}`,
+      }],
+      temperature: 0,
+      maxTokens: 20,
+    })
+    return name.trim().replace(/^(name:|candidate:|applicant:)/i, '').trim()
+  } catch {
+    return ''
+  }
+}
+
+// In your file upload handler, after extracting text:
+async function handleFileUpload(file) {
+  const text = await extractTextFromPDF(file) // or OCR for images
+  updateForm('cvText', text)
+  updateForm('fileName', file.name)
+
+  // Auto-extract and fill the name
+  const extractedName = await extractNameFromCV(text)
+  if (extractedName && extractedName !== 'Unknown') {
+    updateForm('fullName', extractedName)
+  }
+}
 
   function resetAll() {
     reset()
@@ -391,66 +426,43 @@ export default function CVAnalyser() {
               </>
             )}
 
-            {/* Analysis output */}
-            {mode === 'analyse' && (
-              <div className="flex flex-col gap-4">
-                {analyser.loading && (
-                  <div className="flex items-center gap-3 text-sm text-zinc-500">
-                    <div className="w-4 h-4 border-2 border-violet-600 border-t-transparent rounded-full animate-spin flex-shrink-0" />
-                    Analysing your CV against the job description...
-                  </div>
-                )}
-
-                {(analyser.output || analyser.streaming) && (
-                  <div className="bg-white border border-zinc-100 rounded-2xl p-5 shadow-sm">
-                    <div className="flex items-center justify-between mb-4">
-                      <p className="text-sm font-semibold text-zinc-800">Analysis Report</p>
-                      <span className="text-xs bg-violet-100 text-violet-600 px-2 py-1 rounded-lg">
-                        {form.targetRole}
-                      </span>
-                    </div>
-                    <div className="text-sm text-zinc-700 leading-relaxed whitespace-pre-wrap">
-                      {analyser.output}
-                      {analyser.streaming && (
-                        <span className="inline-block w-1.5 h-4 bg-violet-500 ml-0.5 animate-pulse rounded-sm align-middle" />
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {analyser.output && !analyser.streaming && (
-                  <div className="flex gap-3">
-                    <button
-                      onClick={handleRewrite}
-                      disabled={rewriter.loading}
-                      className="flex-1 py-3 bg-violet-600 hover:bg-violet-700 text-white text-sm font-medium rounded-xl transition-colors"
-                    >
-                      Now rewrite my CV ✨
-                    </button>
-                    <button
-                      onClick={resetAll}
-                      className="px-4 py-3 border border-zinc-200 text-zinc-600 text-sm rounded-xl hover:bg-zinc-50 transition-colors"
-                    >
-                      Start over
-                    </button>
-                  </div>
-                )}
+            {/* Loading states */}
+            {(analyser.loading || rewriter.loading) && (
+              <div className="flex items-center gap-3 text-sm text-zinc-500">
+                <div className="w-4 h-4 border-2 border-violet-600 border-t-transparent rounded-full animate-spin flex-shrink-0" />
+                {mode === 'analyse' ? 'Analysing your CV against the job description...' : `Rewriting your CV for ${form.targetRole}...`}
               </div>
             )}
 
-            {/* Rewrite output */}
-            {mode === 'rewrite' && (
+            {/* Show output as soon as it exists */}
+            {(output || analysisOutput) ? (
               <div className="flex flex-col gap-4">
-                {rewriter.loading && (
-                  <div className="flex items-center gap-3 text-sm text-zinc-500">
-                    <div className="w-4 h-4 border-2 border-violet-600 border-t-transparent rounded-full animate-spin flex-shrink-0" />
-                    Rewriting your CV for {form.targetRole}...
-                  </div>
-                )}
-
-                {rewriter.output && !rewriter.streaming && (
+                {mode === 'analyse' && analysisOutput && (
                   <>
-                    {/* Download button */}
+                    <div className="bg-white border border-zinc-100 rounded-2xl p-6 shadow-sm">
+                      <p className="text-sm text-zinc-700 leading-relaxed whitespace-pre-wrap">
+                        {analysisOutput}
+                      </p>
+                    </div>
+                    <div className="flex gap-3">
+                      <button
+                        onClick={handleRewrite}
+                        disabled={rewriter.loading}
+                        className="flex-1 py-3 bg-violet-600 hover:bg-violet-700 text-white text-sm font-medium rounded-xl transition-colors"
+                      >
+                        Now rewrite my CV ✨
+                      </button>
+                      <button
+                        onClick={resetAll}
+                        className="px-4 py-3 border border-zinc-200 text-zinc-600 text-sm rounded-xl hover:bg-zinc-50 transition-colors"
+                      >
+                        Start over
+                      </button>
+                    </div>
+                  </>
+                )}
+                {mode === 'rewrite' && output && (
+                  <div className="flex flex-col gap-4">
                     <div className="flex gap-3">
                       <button
                         onClick={handleDownloadPDF}
@@ -478,9 +490,7 @@ export default function CVAnalyser() {
                         Start over
                       </button>
                     </div>
-
-                    {/* Styled CV preview */}
-                    <div className="overflow-x-auto rounded-xl border border-zinc-200 shadow-sm">
+                    <div id="cv-analyser-preview" className="overflow-x-auto rounded-xl border border-zinc-200 shadow-sm">
                       <div style={{ minWidth: '600px' }}>
                         <CVRenderer
                           ref={cvRef}
@@ -490,9 +500,7 @@ export default function CVAnalyser() {
                         />
                       </div>
                     </div>
-
-                    {/* Chat refinement */}
-                    {currentCV && !rewriter.streaming && (
+                    {currentCV && (
                       <div className="bg-zinc-50 border border-zinc-200 rounded-2xl p-4">
                         <CVChat
                           currentCV={currentCV}
@@ -500,8 +508,15 @@ export default function CVAnalyser() {
                         />
                       </div>
                     )}
-                  </>
+                  </div>
                 )}
+              </div>
+            ) : (
+              <div className="flex-1 flex items-center justify-center bg-zinc-50 rounded-xl border border-zinc-200 py-16">
+                <div className="text-center text-zinc-400">
+                  <p className="text-3xl mb-3">🔍</p>
+                  <p className="text-sm">Upload a CV and job description to get started</p>
+                </div>
               </div>
             )}
           </div>

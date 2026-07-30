@@ -14,6 +14,7 @@ import { useEmailStore } from '../../store/emailStore'
 import { useDojoStore } from '../../store/dojoStore'
 import { tools, toolCategories } from '../../tools/registry'
 import { loadConversations, loadToolMessages } from '../../services/memory'
+import ConversationSearch from '../chat/ConversationSearch'
 
 export default function Sidebar({ isOpen, onClose }) {
   const user = useUserStore((s) => s.user)
@@ -30,6 +31,7 @@ export default function Sidebar({ isOpen, onClose }) {
   const clearMessages = useChatStore((s) => s.clearMessages)
   const [showRecents, setShowRecents] = useState(true)
   const [showTools, setShowTools] = useState(true)
+  const [showSearch, setShowSearch] = useState(false)
 
   useEffect(() => {
     if (!user?.uid) return
@@ -37,6 +39,18 @@ export default function Sidebar({ isOpen, onClose }) {
       .then((convos) => setConversations(convos))
       .catch((err) => console.error('Failed to load conversations:', err))
   }, [user?.uid])
+
+  useEffect(() => {
+    function handleKey(e) {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault()
+        setShowSearch(true)
+      }
+      if (e.key === 'Escape') setShowSearch(false)
+    }
+    window.addEventListener('keydown', handleKey)
+    return () => window.removeEventListener('keydown', handleKey)
+  }, [])
 
   function clearToolStore(toolId) {
     const map = {
@@ -76,20 +90,33 @@ export default function Sidebar({ isOpen, onClose }) {
   }
 
   async function handleSelectConversation(convo) {
-    const isTool = convo.type === 'tool'
+  const isTool = convo.type === 'tool'
 
-    if (isTool) {
-      setActiveTool(convo.toolId)
-      clearToolStore(convo.toolId)
-      await loadToolSession(convo.toolId, convo.id)
+  if (isTool) {
+    setActiveTool(convo.toolId)
+    clearToolStore(convo.toolId)
+
+    // Chat-based tools (Codex, Math) load messages
+    if (convo.toolId === 'codex') {
+      await codex.loadSession(convo.id)
+      navigate(`/tool/${convo.toolId}`)
+    } else if (convo.toolId === 'math') {
+      await math.loadSession(convo.id)
       navigate(`/tool/${convo.toolId}`)
     } else {
-      setActiveTool('chat')
-      setActiveConversationId(convo.id)
-      navigate('/chat')
+      // Form-based tools — pass sessionId via router state
+      // The tool component reads this and loads from Firestore
+      navigate(`/tool/${convo.toolId}`, {
+        state: { sessionId: convo.id },
+      })
     }
-    onClose()
+  } else {
+    setActiveTool('chat')
+    setActiveConversationId(convo.id)
+    navigate('/chat')
   }
+  onClose()
+}
 
   function handleNewChat() {
     setActiveTool('chat')
@@ -144,6 +171,20 @@ export default function Sidebar({ isOpen, onClose }) {
                 <path d="M12 5v14M5 12h14"/>
               </svg>
               New chat
+            </button>
+          </div>
+
+          {/* Search button */}
+          <div className="px-3">
+            <button
+              onClick={() => setShowSearch(true)}
+              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl border border-zinc-700 hover:bg-zinc-800 transition-colors text-sm text-zinc-400 hover:text-white mt-2"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>
+              </svg>
+              Search
+              <kbd className="ml-auto text-xs bg-zinc-800 px-1.5 py-0.5 rounded text-zinc-500">⌘K</kbd>
             </button>
           </div>
 
@@ -263,6 +304,7 @@ export default function Sidebar({ isOpen, onClose }) {
           </div>
         </div>
       </div>
+      {showSearch && <ConversationSearch onClose={() => setShowSearch(false)} />}
     </>
   )
 }

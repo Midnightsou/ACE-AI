@@ -1,11 +1,24 @@
-// Add at the top of the file
-const conversationCache = new Map()
-const CACHE_TTL = 30000 // 30 seconds
+import {
+  collection,
+  doc,
+  addDoc,
+  getDoc,
+  getDocs,
+  setDoc,
+  updateDoc,
+  query,
+  orderBy,
+  limit,
+  serverTimestamp,
+} from 'firebase/firestore'
+import { db } from './firebase'
 
-export async function loadConversations(uid, limitCount = 30) {
+const conversationCache = new Map()
+const CACHE_TTL = 30000
+
+export async function loadConversations(uid, limitCount = 40) {
   const cacheKey = `convs_${uid}`
   const cached = conversationCache.get(cacheKey)
-
   if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
     return cached.data
   }
@@ -22,150 +35,65 @@ export async function loadConversations(uid, limitCount = 30) {
 export function invalidateConversationCache(uid) {
   conversationCache.delete(`convs_${uid}`)
 }
-import {
-  doc,
-  getDoc,
-  setDoc,
-  updateDoc,
-  collection,
-  addDoc,
-  query,
-  where,
-  orderBy,
-  limit,
-  getDocs,
-  serverTimestamp,
-} from 'firebase/firestore'
 
-import { db } from './firebase'
+// ── Chat conversations ──────────────────────────────────
 
-/* ─────────────────────────────
-   PROFILE
-───────────────────────────── */
-
-export async function getProfile(uid) {
-  const ref = doc(db, 'students', uid)
-  const snap = await getDoc(ref)
-
-  return snap.exists() ? snap.data() : null
-}
-
-export async function updateProfile(uid, updates) {
-  const ref = doc(db, 'students', uid)
-
-  // safer: create doc if missing
-  const snap = await getDoc(ref)
-  if (!snap.exists()) {
-    await setDoc(ref, {
-      ...updates,
-      createdAt: serverTimestamp(),
-    })
-    return
-  }
-
-  await updateDoc(ref, updates)
-}
-
-/* ─────────────────────────────
-   CONVERSATIONS
-───────────────────────────── */
-
-export async function createConversation(uid, firstMessage) {
+export async function createConversation(uid, title) {
   const ref = collection(db, 'students', uid, 'conversations')
-
   const newDoc = await addDoc(ref, {
-    title: generateTitle(firstMessage),
-    createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp(),
-  })
-
-  return newDoc.id
-}
-
-export async function updateConversationTitle(uid, conversationId, title) {
-  const ref = doc(db, 'students', uid, 'conversations', conversationId)
-
-  await updateDoc(ref, {
+    type: 'chat',
     title,
-    updatedAt: serverTimestamp(),
-  })
-}
-
-
-
-export async function saveToolSession(uid, toolId, toolName, preview, icon) {
-  const ref = collection(db, 'students', uid, 'conversations')
-
-  // Always create a new session — never overwrite existing ones
-  const newDoc = await addDoc(ref, {
-    type: 'tool',
-    toolId,
-    toolName,
-    icon,
-    title: preview,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   })
-
+  invalidateConversationCache(uid)
   return newDoc.id
 }
 
-/* ─────────────────────────────
-   MESSAGES
-───────────────────────────── */
-
-export async function saveMessage(uid, conversationId, message) {
-  const ref = collection(
-    db,
-    'students',
-    uid,
-    'conversations',
-    conversationId,
-    'messages'
-  )
-
+export async function saveMessage(uid, convId, message) {
+  const ref = collection(db, 'students', uid, 'conversations', convId, 'messages')
   await addDoc(ref, {
     role: message.role,
     content: message.content,
     createdAt: serverTimestamp(),
   })
-
-  // bump conversation ordering
-  const convoRef = doc(
-    db,
-    'students',
-    uid,
-    'conversations',
-    conversationId
-  )
-
-  await updateDoc(convoRef, {
+  await updateDoc(doc(db, 'students', uid, 'conversations', convId), {
     updatedAt: serverTimestamp(),
   })
+  invalidateConversationCache(uid)
 }
 
-export async function loadMessages(uid, conversationId, limitCount = 50) {
-  const ref = collection(
-    db,
-    'students',
-    uid,
-    'conversations',
-    conversationId,
-    'messages'
-  )
-
-  const q = query(ref, orderBy('createdAt', 'asc'), limit(limitCount))
+export async function loadMessages(uid, convId) {
+  const ref = collection(db, 'students', uid, 'conversations', convId, 'messages')
+  const q = query(ref, orderBy('createdAt', 'asc'), limit(100))
   const snap = await getDocs(q)
-
-  return snap.docs.map((d) => ({
-    id: d.id,
-    ...d.data(),
-  }))
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }))
 }
 
-/* ─────────────────────────────
-   TOOL MESSAGES
-───────────────────────────── */
+export async function updateConversationTitle(uid, convId, title) {
+  await updateDoc(doc(db, 'students', uid, 'conversations', convId), {
+    title,
+    updatedAt: serverTimestamp(),
+  })
+  invalidateConversationCache(uid)
+}
+
+// ── Tool sessions (chat-based: Codex, Math, Dojo) ──────
+
+export async function saveToolSession(uid, toolId, toolName, title, icon) {
+  const ref = collection(db, 'students', uid, 'conversations')
+  const newDoc = await addDoc(ref, {
+    type: 'tool',
+    toolId,
+    toolName,
+    icon: icon || '🔧',
+    title,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  })
+  invalidateConversationCache(uid)
+  return newDoc.id
+}
 
 export async function saveToolMessage(uid, sessionId, message) {
   const ref = collection(db, 'students', uid, 'conversations', sessionId, 'messages')
@@ -174,8 +102,10 @@ export async function saveToolMessage(uid, sessionId, message) {
     content: message.content,
     createdAt: serverTimestamp(),
   })
-  const convoRef = doc(db, 'students', uid, 'conversations', sessionId)
-  await updateDoc(convoRef, { updatedAt: serverTimestamp() })
+  await updateDoc(doc(db, 'students', uid, 'conversations', sessionId), {
+    updatedAt: serverTimestamp(),
+  })
+  invalidateConversationCache(uid)
 }
 
 export async function loadToolMessages(uid, sessionId) {
@@ -185,111 +115,106 @@ export async function loadToolMessages(uid, sessionId) {
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }))
 }
 
-/* ─────────────────────────────
-   FREEMIUM MESSAGE COUNT
-───────────────────────────── */
+// ── Tool sessions (form-based: CV, Email, Essay, etc) ──
 
-export async function incrementMessageCount(uid) {
-  const ref = doc(db, 'students', uid)
-  const snap = await getDoc(ref)
-
-  const today = new Date().toDateString()
-
-  if (!snap.exists()) {
-    await setDoc(ref, {
-      dailyMessageCount: 1,
-      lastMessageReset: today,
-    })
-    return 1
-  }
-
-  const data = snap.data()
-  const lastReset = data.lastMessageReset || ''
-
-  if (lastReset !== today) {
-    await updateDoc(ref, {
-      dailyMessageCount: 1,
-      lastMessageReset: today,
-    })
-    return 1
-  }
-
-  const newCount = (data.dailyMessageCount || 0) + 1
-
-  await updateDoc(ref, {
-    dailyMessageCount: newCount,
+export async function createFormToolSession(uid, toolId, toolName, icon, title) {
+  const ref = collection(db, 'students', uid, 'conversations')
+  const newDoc = await addDoc(ref, {
+    type: 'tool',
+    toolId,
+    toolName,
+    icon: icon || '🔧',
+    title,
+    savedState: null,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
   })
-
-  return newCount
+  invalidateConversationCache(uid)
+  return newDoc.id
 }
 
-export async function getMessageCount(uid) {
-  const ref = doc(db, 'students', uid)
-  const snap = await getDoc(ref)
+export async function updateFormToolSession(uid, sessionId, title, state) {
+  await updateDoc(doc(db, 'students', uid, 'conversations', sessionId), {
+    title,
+    savedState: JSON.stringify(state),
+    updatedAt: serverTimestamp(),
+  })
+  invalidateConversationCache(uid)
+}
 
-  if (!snap.exists()) return 0
-
+export async function loadFormToolSession(uid, sessionId) {
+  const snap = await getDoc(doc(db, 'students', uid, 'conversations', sessionId))
+  if (!snap.exists()) return null
   const data = snap.data()
-  const today = new Date().toDateString()
+  if (!data.savedState) return null
+  try {
+    return JSON.parse(data.savedState)
+  } catch {
+    return null
+  }
+}
 
-  if (data.lastMessageReset !== today) return 0
+// ── Profile ────────────────────────────────────────────
+
+export async function updateProfile(uid, data) {
+  await updateDoc(doc(db, 'students', uid), data)
+}
+
+// ── Message counting + streak ──────────────────────────
+
+export async function getMessageCount(uid) {
+  const snap = await getDoc(doc(db, 'students', uid))
+  if (!snap.exists()) return 0
+  const data = snap.data()
+
+  // Reset count if it's a new day
+  const today = new Date().toDateString()
+  if (data.lastMessageReset !== today) {
+    await updateDoc(doc(db, 'students', uid), {
+      dailyMessageCount: 0,
+      lastMessageReset: today,
+    })
+    return 0
+  }
 
   return data.dailyMessageCount || 0
 }
 
-/* ─────────────────────────────
-   STREAK SYSTEM (NEW)
-───────────────────────────── */
-
-export async function updateStreak(uid) {
-  const ref = doc(db, 'students', uid)
-  const snap = await getDoc(ref)
-
+export async function incrementMessageCount(uid) {
   const today = new Date().toDateString()
-
-  if (!snap.exists()) {
-    await setDoc(ref, {
-      streak: 1,
-      lastActiveDate: today,
-    })
-    return 1
-  }
+  const snap = await getDoc(doc(db, 'students', uid))
+  if (!snap.exists()) return
 
   const data = snap.data()
+  const isNewDay = data.lastMessageReset !== today
 
-  const lastActive = data.lastActiveDate || ''
-  let streak = data.streak || 0
-
-  // already counted today
-  if (lastActive === today) return streak
-
-  const yesterday = new Date()
-  yesterday.setDate(yesterday.getDate() - 1)
-
-  if (lastActive === yesterday.toDateString()) {
-    streak += 1
-  } else {
-    streak = 1
-  }
-
-  await updateDoc(ref, {
-    streak,
-    lastActiveDate: today,
+  await updateDoc(doc(db, 'students', uid), {
+    dailyMessageCount: isNewDay ? 1 : (data.dailyMessageCount || 0) + 1,
+    lastMessageReset: today,
+    lastActive: new Date().toISOString(),
   })
-
-  return streak
 }
 
-/* ─────────────────────────────
-   HELPERS
-───────────────────────────── */
+export async function updateStreak(uid) {
+  const snap = await getDoc(doc(db, 'students', uid))
+  if (!snap.exists()) return
 
-function generateTitle(firstMessage) {
-  if (!firstMessage) return 'New chat'
+  const data = snap.data()
+  const today = new Date().toDateString()
+  const yesterday = new Date(Date.now() - 86400000).toDateString()
 
-  const cleaned = firstMessage.trim()
+  const lastActive = data.lastStreakDate
+  let streak = data.streak || 0
 
-  if (cleaned.length <= 40) return cleaned
+  if (lastActive === today) return // Already updated today
+  if (lastActive === yesterday) {
+    streak += 1 // Continue streak
+  } else {
+    streak = 1 // Reset streak
+  }
 
-  return cleaned.slice(0, 40).trimEnd() + '...'
+  await updateDoc(doc(db, 'students', uid), {
+    streak,
+    lastStreakDate: today,
+  })
 }

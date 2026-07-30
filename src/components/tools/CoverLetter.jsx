@@ -1,5 +1,7 @@
 import { useRef, useState } from 'react'
 import { forwardRef } from 'react'
+import { useLocation } from 'react-router-dom'
+import { useToolSession } from '../../hooks/useToolSession'
 import { useCoverLetterStore } from '../../store/coverLetterStore'
 import { useTool } from '../../hooks/useTool'
 import { useCoverLetterChat } from '../../hooks/useCoverLetterChat'
@@ -14,6 +16,29 @@ import { defaultStyle } from '../../tools/cvStyles'
 
 const tool = getToolById('cover-letter')
 const TONES = ['Professional', 'Confident', 'Conversational', 'Creative', 'Formal']
+const location = useLocation()
+const { saveSession, loadSession, restoring, resetSession } = useToolSession('cover-letter', 'Cover Letter', '✉️')
+
+useEffect(() => {
+  const sid = location.state?.sessionId
+  if (!sid) return
+  loadSession(sid).then((saved) => {
+    if (!saved) return
+    if (saved.form) Object.entries(saved.form).forEach(([k, v]) => updateForm(k, v))
+    if (saved.output) {
+      setOutput(saved.output)
+      setLiveOutput(saved.output)
+      setStep(2)
+    }
+  })
+}, [location.state?.sessionId])
+
+useEffect(() => {
+  if (!output) return
+  const state = { form, output, step }
+  const title = `Cover Letter — ${form.company || form.role || 'Untitled'}`
+  saveSession(state, title)
+}, [output])
 
 const CHAT_SUGGESTIONS = [
   'Make the opening more attention-grabbing',

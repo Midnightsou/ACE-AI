@@ -14,6 +14,7 @@ const ProfilePage = lazy(() => import('./pages/ProfilePage'))
 const PricingPage = lazy(() => import('./pages/PricingPage'))
 const OnboardingFlow = lazy(() => import('./components/onboarding/OnboardingFlow'))
 const ToolPage = lazy(() => import('./pages/ToolPage'))
+const SharedConversationPage = lazy(() => import('./pages/SharedConversationPage'))
 
 function Spinner() {
   return (
@@ -57,6 +58,7 @@ export default function AppRouter() {
         <Route path="/tool/:toolId" element={<ProtectedRoute><ToolPage /></ProtectedRoute>} />
         <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
         <Route path="/pricing" element={<ProtectedRoute><PricingPage /></ProtectedRoute>} />
+        <Route path="/share/:shareId" element={<SharedConversationPage />} />
         <Route path="*" element={<Navigate to="/chat" replace />} />
       </Routes>
     </Suspense>

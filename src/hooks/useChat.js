@@ -187,7 +187,10 @@ export function useChat() {
   }
 
   async function loadConversation(convId) {
-    if (restoredConvId === convId) return // Already loaded, don't re-fetch
+    if (!convId || !user?.uid) return
+
+    // Always load — don't skip even if same ID
+    // The sidebar already handles not re-clicking active ones
     try {
       const msgs = await loadMessages(user.uid, convId)
       clearMessages()

@@ -4,6 +4,7 @@ import { useConversationStore } from '../../store/conversationStore'
 import { useUserStore } from '../../store/userStore'
 import { useChatStore } from '../../store/chatStore'
 import { useToolStore } from '../../store/toolStore'
+import { useChat } from '../../hooks/useChat'
 import { useCodexStore } from '../../store/codexStore'
 import { useMathStore } from '../../store/mathStore'
 import { useCVMakerStore, useCVAnalyserStore } from '../../store/cvStore'
@@ -26,6 +27,7 @@ export default function Sidebar({ isOpen, onClose }) {
     setActiveConversationId,
   } = useConversationStore()
   const clearMessages = useChatStore((s) => s.clearMessages)
+  const { loadConversation } = useChat()
   const [showRecents, setShowRecents] = useState(true)
   const [showSearch, setShowSearch] = useState(false)
   const [menuOpen, setMenuOpen] = useState(null) // holds convo id
@@ -74,13 +76,15 @@ export default function Sidebar({ isOpen, onClose }) {
 
   async function handleSelectConversation(convo) {
     const isTool = convo.type === 'tool'
+
     if (isTool) {
       setActiveTool(convo.toolId)
       clearToolStore(convo.toolId)
       navigate(`/tool/${convo.toolId}`, { state: { sessionId: convo.id } })
     } else {
+      // Chat — load messages immediately, no refresh needed
       setActiveTool('chat')
-      setActiveConversationId(convo.id)
+      await loadConversation(convo.id)
       navigate('/chat')
     }
     onClose()

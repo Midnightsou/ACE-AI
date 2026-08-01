@@ -1,23 +1,12 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import ChatWindow from '../components/chat/ChatWindow'
 import Sidebar from '../components/sidebar/Sidebar'
-import { useChat } from '../hooks/useChat'
-import { useConversationStore } from '../store/conversationStore'
-import { useChatStore } from '../store/chatStore'
 
 export default function ChatPage() {
-  const { loadConversation } = useChat()
-  const activeConversationId = useConversationStore((s) => s.activeConversationId)
-  const messages = useChatStore((s) => s.messages)
-  const restoredConvId = useChatStore((s) => s.restoredConvId)
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
-  // Restore last conversation when returning to chat page
-  useEffect(() => {
-    if (activeConversationId && messages.length === 0 && restoredConvId !== activeConversationId) {
-      loadConversation(activeConversationId)
-    }
-  }, [activeConversationId]) // eslint-disable-line react-hooks/exhaustive-deps
+  // Remove the useEffect that was re-loading on mount
+  // The sidebar now handles loading directly before navigating
 
   return (
     <div className="flex" style={{ height: '100dvh' }}>

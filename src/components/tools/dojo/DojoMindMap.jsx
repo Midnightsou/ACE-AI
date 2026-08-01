@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useDojo } from '../../../hooks/useDojo'
 import { buildMindMapPrompt } from '../../../prompts/tools/dojoPrompt'
+import { useToast } from '../../../components/ui/Toast'
 
 /**
  * Advanced resilient parser handling flexible AI outputs
@@ -436,7 +437,7 @@ function MindMapViz({ data }) {
 
 export default function DojoMindMap() {
   const { generateContent, generatingTab, generatedContent, readySources } = useDojo()
-  const [copied, setCopied] = useState(false)
+  const { toast } = useToast()
 
   const content = generatedContent['mindmap']
   const isGenerating = generatingTab === 'mindmap'
@@ -445,8 +446,7 @@ export default function DojoMindMap() {
   async function handleCopy() {
     if (!content) return
     await navigator.clipboard.writeText(content)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
+    toast.success('Copied to clipboard')
   }
 
   if (readySources.length === 0) {
@@ -480,7 +480,7 @@ export default function DojoMindMap() {
               onClick={handleCopy}
               className="text-xs font-semibold text-slate-200 hover:text-blue-200 transition-colors bg-slate-900/80 hover:bg-blue-950/70 px-3 py-1.5 rounded-lg border border-transparent hover:border-blue-800"
             >
-              {copied ? '✓ Copied' : 'Copy Outline'}
+              Copy Outline
             </button>
             <button
               onClick={() => generateContent('mindmap', buildMindMapPrompt)}

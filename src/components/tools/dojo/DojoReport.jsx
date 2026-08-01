@@ -1,10 +1,10 @@
-import { useState } from 'react'
 import { useDojo } from '../../../hooks/useDojo'
 import { buildReportPrompt } from '../../../prompts/tools/dojoPrompt'
+import { useToast } from '../../../components/ui/Toast'
 
 export default function DojoReport() {
   const { generateContent, generatingTab, generatedContent, readySources } = useDojo()
-  const [copied, setCopied] = useState(false)
+  const { toast } = useToast()
 
   const content = generatedContent['report']
   const isGenerating = generatingTab === 'report'
@@ -12,8 +12,7 @@ export default function DojoReport() {
   async function handleCopy() {
     if (!content) return
     await navigator.clipboard.writeText(content)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
+    toast.success('Copied to clipboard')
   }
 
   function handleDownload() {
@@ -47,7 +46,7 @@ export default function DojoReport() {
         {content && !isGenerating && (
           <div className="flex items-center gap-3">
             <button onClick={handleCopy} className="text-xs text-zinc-400 hover:text-violet-600 transition-colors">
-              {copied ? '✓ Copied' : 'Copy'}
+              Copy
             </button>
             <button onClick={handleDownload} className="text-xs text-zinc-400 hover:text-violet-600 transition-colors">
               Download

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { tools, toolCategories } from '../tools/registry'
 import { useToolStore } from '../store/toolStore'
@@ -10,6 +10,8 @@ import { useEssayStore } from '../store/essayStore'
 import { useEmailStore } from '../store/emailStore'
 import { useDojoStore } from '../store/dojoStore'
 import Sidebar from '../components/sidebar/Sidebar'
+import { ToolIcon } from '../components/ui/ToolIcons'
+import { ToolCardSkeleton } from '../components/ui/Skeleton'
 
 const categoryIcons = {
   general: '⚡',
@@ -23,6 +25,13 @@ export default function ToolsPage() {
   const { setActiveTool } = useToolStore()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [search, setSearch] = useState('')
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    // Simulate tools registry loading
+    const timer = setTimeout(() => setLoading(false), 400)
+    return () => clearTimeout(timer)
+  }, [])
 
   const filtered = tools.filter(
     (t) =>
@@ -92,7 +101,11 @@ export default function ToolsPage() {
 
         {/* Tools grid */}
         <div className="flex-1 overflow-y-auto px-5 py-6">
-          {search ? (
+          {loading ? (
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+              {Array.from({ length: 9 }).map((_, i) => <ToolCardSkeleton key={i} />)}
+            </div>
+          ) : search ? (
             /* Search results */
             <div className="flex flex-col gap-4">
               <p className="text-xs text-zinc-400">
@@ -136,32 +149,15 @@ export default function ToolsPage() {
 function ToolCard({ tool, onClick }) {
   return (
     <button
-      onClick={onClick}
-      className="group flex flex-col gap-3 p-4 bg-white border border-zinc-200 rounded-2xl hover:border-violet-400 hover:shadow-md transition-all text-left"
+      onClick={() => onClick(tool)}
+      className="flex flex-col gap-3 p-5 bg-white border border-zinc-200 rounded-2xl hover:border-violet-400 hover:shadow-sm transition-all text-left group"
     >
-      <div className="flex items-center justify-between">
-        <div className="w-10 h-10 bg-zinc-50 group-hover:bg-violet-50 rounded-xl flex items-center justify-center text-xl transition-colors">
-          {tool.icon}
-        </div>
-        <svg
-          width="14" height="14"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="#d1d5db"
-          strokeWidth="2"
-          strokeLinecap="round"
-          className="group-hover:stroke-violet-400 transition-colors"
-        >
-          <path d="M5 12h14M12 5l7 7-7 7"/>
-        </svg>
+      <div className="w-10 h-10 bg-violet-50 rounded-xl flex items-center justify-center group-hover:bg-violet-100 transition-colors">
+        <ToolIcon toolId={tool.id} size={20} className="text-violet-600" />
       </div>
       <div>
-        <p className="text-sm font-semibold text-zinc-800 group-hover:text-violet-700 transition-colors">
-          {tool.name}
-        </p>
-        <p className="text-xs text-zinc-400 mt-0.5 leading-relaxed">
-          {tool.description}
-        </p>
+        <p className="text-sm font-semibold text-zinc-800">{tool.name}</p>
+        <p className="text-xs text-zinc-400 mt-0.5 leading-relaxed">{tool.description}</p>
       </div>
     </button>
   )

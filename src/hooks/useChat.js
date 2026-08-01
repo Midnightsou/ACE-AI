@@ -2,13 +2,15 @@ import { useState, useRef } from 'react'
 import { useChatStore } from '../store/chatStore'
 import { useConversationStore } from '../store/conversationStore'
 import { useUserStore } from '../store/userStore'
-import { streamCompletion, MODELS } from '../services/deepseekClient'
+import { complete, streamCompletion, MODELS } from '../services/deepseekClient'
 import { buildSystemPrompt } from '../prompts/systemPrompt'
 import {
   createConversation,
   saveMessage,
   loadMessages,
+  loadConversations,
   incrementMessageCount,
+  updateConversationTitle,
 } from '../services/memory'
 import {
   searchWeb,
@@ -18,6 +20,33 @@ import {
 } from '../services/webSearch'
 import { fetchURLContent } from '../services/urlFetcher'
 import { canUseFeature } from '../config/pricing'
+
+async function generateTitle(messages) {
+  try {
+    const context = messages
+      .slice(0, 4)
+      .map((m) => `${m.role === 'user' ? 'User' : 'AI'}: ${m.content.slice(0, 100)}`)
+      .join('\n')
+
+    const title = await complete({
+      model: MODELS.chat,
+      messages: [{
+        role: 'user',
+        content: `Generate a 4-word title for this conversation. Return ONLY the title — no punctuation, no quotes, no explanation.
+
+${context}
+
+4-word title:`,
+      }],
+      temperature: 0.3,
+      maxTokens: 20,
+    })
+
+    return title.trim().replace(/["'.]/g, '').slice(0, 50)
+  } catch {
+    return null
+  }
+}
 
 export function useChat() {
   const {
@@ -37,6 +66,7 @@ export function useChat() {
   const [fileContext, setFileContext] = useState(null)
   const [searchCitations, setSearchCitations] = useState([])
   const [isSearching, setIsSearching] = useState(false)
+  const [loadingConversation, setLoadingConversation] = useState(false)
   const abortRef = useRef(null)
 
   async function send(text) {
@@ -69,7 +99,7 @@ export function useChat() {
         const title = text.slice(0, 50) + (text.length > 50 ? '...' : '')
         convId = await createConversation(user.uid, title)
         setActiveConversationId(convId)
-        const updated = await import('../services/memory').then((m) => m.loadConversations(user.uid))
+        const updated = await loadConversations(user.uid)
         setConversations(updated)
       }
 
@@ -171,6 +201,19 @@ export function useChat() {
       await incrementMessageCount(user.uid)
       bringToTop(convId)
 
+      // ── Step 7: Auto-title after 2nd exchange (4 messages = 2 user + 2 assistant) ──
+      const updatedMessages = [...messages, userMessage, { role: 'assistant', content: finalContent }]
+      if (updatedMessages.length === 4 && convId && user?.uid) {
+        generateTitle(updatedMessages).then(async (title) => {
+          if (title) {
+            await updateConversationTitle(user.uid, convId, title)
+            // Refresh conversations in sidebar
+            const updated = await loadConversations(user.uid)
+            setConversations(updated)
+          }
+        }).catch(() => {}) // silently fail — title isn't critical
+      }
+
     } catch (err) {
       if (err.name === 'AbortError') return
       setStreamingContent('')
@@ -191,6 +234,7 @@ export function useChat() {
 
     // Always load — don't skip even if same ID
     // The sidebar already handles not re-clicking active ones
+    setLoadingConversation(true)
     try {
       const msgs = await loadMessages(user.uid, convId)
       clearMessages()
@@ -199,6 +243,8 @@ export function useChat() {
       setRestoredConvId(convId)
     } catch (err) {
       console.error('Load conversation error:', err)
+    } finally {
+      setLoadingConversation(false)
     }
   }
 
@@ -208,6 +254,7 @@ export function useChat() {
     setActiveConversationId(null)
     setSearchCitations([])
     setFileContext(null)
+    setLoadingConversation(false)
   }
 
   function handleEdit(index, newContent) {
@@ -218,7 +265,7 @@ export function useChat() {
   return {
     messages, streamingContent, loading,
     fileContext, setFileContext,
-    searchCitations, isSearching,
+    searchCitations, isSearching, loadingConversation,
     send, loadConversation, startNewChat, handleEdit,
   }
 }

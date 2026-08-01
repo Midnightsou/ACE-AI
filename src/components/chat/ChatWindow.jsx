@@ -6,9 +6,12 @@ import TypingIndicator from './TypingIndicator'
 import InputBar from './InputBar'
 import FileContextBanner from './FileContextBanner'
 import StreamingBubble from './StreamingBubble'
+import CopyConversation from './CopyConversation'
 import ThemeToggle from '../ui/ThemeToggle'
+import { MessageSkeleton } from '../ui/Skeleton'
 import { createShareLink } from '../../services/shareService'
 import { useConversationStore } from '../../store/conversationStore'
+import { useToast } from '../ui/Toast'
 
 const languageLabels = {
   english: 'English',
@@ -21,7 +24,7 @@ export default function ChatWindow() {
   const {
     messages, streamingContent, loading,
     fileContext, setFileContext,
-    isSearching,
+    isSearching, loadingConversation,
     send, handleEdit,
   } = useChat()
   const user = useUserStore((s) => s.user)
@@ -32,8 +35,8 @@ export default function ChatWindow() {
   const activeConversation = useConversationStore((s) =>
     s.conversations.find((c) => c.id === s.activeConversationId)
   )
+  const { toast } = useToast()
   const [sharing, setSharing] = useState(false)
-  const [shareUrl, setShareUrl] = useState(null)
 
   async function handleShare() {
     if (!messages.length || !user?.uid) return
@@ -45,10 +48,11 @@ export default function ChatWindow() {
         messages,
         activeConversation?.title || 'Ace Conversation'
       )
-      setShareUrl(url)
       await navigator.clipboard.writeText(url)
+      toast.success('Link copied to clipboard')
     } catch (err) {
       console.error(err)
+      toast.error('Failed to create share link')
     } finally {
       setSharing(false)
     }
@@ -77,16 +81,13 @@ export default function ChatWindow() {
           disabled={sharing || !messages.length}
           className="flex items-center gap-1.5 text-xs text-zinc-400 hover:text-violet-600 transition-colors disabled:opacity-40"
         >
-          {shareUrl ? '✓ Link copied!' : (
-            <>
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
-                <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
-              </svg>
-              Share
-            </>
-          )}
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+            <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
+            <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+          </svg>
+          Share
         </button>
+        <CopyConversation messages={messages} />
         <ThemeToggle className="ml-auto" />
       </div>
 
@@ -96,7 +97,9 @@ export default function ChatWindow() {
       {/* Messages */}
       <div className="flex-1 min-h-0 overflow-y-auto">
 
-        {messages.length === 0 && (
+        {loadingConversation ? (
+          <MessageSkeleton />
+        ) : messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center gap-3 pb-12">
             <div className="w-14 h-14 bg-violet-100 rounded-2xl flex items-center justify-center">
               <span className="text-2xl">ACE</span>
@@ -124,38 +127,40 @@ export default function ChatWindow() {
               ))}
             </div>
           </div>
-        )}
+        ) : (
+          <>
+            {messages.map((msg, i) => (
+              <MessageBubble
+                key={i}
+                message={msg}
+                index={i}
+                onEdit={handleEdit}
+              />
+            ))}
 
-        {messages.map((msg, i) => (
-          <MessageBubble
-            key={i}
-            message={msg}
-            index={i}
-            onEdit={handleEdit}
-          />
-        ))}
+            {/* Searching indicator */}
+            {isSearching && (
+              <div className="flex justify-start mb-3">
+                <div className="w-8 h-8 rounded-full bg-violet-600 flex items-center justify-center text-white text-xs font-bold mr-2 flex-shrink-0">
+                  A
+                </div>
+                <div className="bg-white border border-zinc-100 shadow-sm px-4 py-3 rounded-2xl flex items-center gap-2">
+                  <div className="w-3.5 h-3.5 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
+                  <span className="text-sm text-zinc-500">Searching the web...</span>
+                </div>
+              </div>
+            )}
 
-        {/* Searching indicator */}
-        {isSearching && (
-          <div className="flex justify-start mb-3">
-            <div className="w-8 h-8 rounded-full bg-violet-600 flex items-center justify-center text-white text-xs font-bold mr-2 flex-shrink-0">
-              A
-            </div>
-            <div className="bg-white border border-zinc-100 shadow-sm px-4 py-3 rounded-2xl flex items-center gap-2">
-              <div className="w-3.5 h-3.5 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
-              <span className="text-sm text-zinc-500">Searching the web...</span>
-            </div>
-          </div>
-        )}
+            {/* Streaming */}
+            {streamingContent && !isSearching && (
+              <StreamingBubble content={streamingContent} />
+            )}
 
-        {/* Streaming */}
-        {streamingContent && !isSearching && (
-          <StreamingBubble content={streamingContent} />
-        )}
-
-        {/* Loading dots */}
-        {loading && !streamingContent && !isSearching && (
-          <TypingIndicator />
+            {/* Loading dots */}
+            {loading && !streamingContent && !isSearching && (
+              <TypingIndicator />
+            )}
+          </>
         )}
 
         <div ref={bottomRef} />

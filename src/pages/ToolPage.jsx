@@ -3,6 +3,7 @@ import { useParams, Navigate } from 'react-router-dom'
 import { getToolById } from '../tools/registry'
 import Sidebar from '../components/sidebar/Sidebar'
 import ComingSoon from '../components/tools/ComingSoon'
+import ErrorBoundary from '../components/ui/ErrorBoundary'
 
 // Each tool only loads when navigated to
 const toolComponents = {
@@ -58,7 +59,9 @@ export default function ToolPage() {
         )}
         <div className="flex-1 overflow-hidden">
           <Suspense fallback={<ToolSpinner />}>
-            {ToolComponent ? <ToolComponent /> : <ComingSoon tool={tool} />}
+            <ErrorBoundary key={toolId}>
+              {ToolComponent ? <ToolComponent /> : <ComingSoon tool={tool} />}
+            </ErrorBoundary>
           </Suspense>
         </div>
       </div>

@@ -1,86 +1,19 @@
 export const tools = [
-  {
-    id: 'chat',
-    name: 'Ace AI',
-    description: 'General AI assistant',
-    icon: '💬',
-    category: 'general',
-    path: '/chat',
-  },
-  {
-    id: 'math',
-    name: 'Axioma',
-    description: 'Solve math problems ',
-    icon: '🧮',
-    category: 'general',
-    path: '/tool/math',
-  },
-  {
-    id: 'codex',
-    name: 'Fabricare',
-    description: 'write and debug code',
-    icon: '🔧',
-    category: 'technical',
-    path: '/tool/codex',
-  },
-  {
-    id: 'cv-maker',
-    name: 'Aeterna',
-    description: 'Generate a professional CV',
-    icon: '📄',
-    category: 'productivity',
-    path: '/tool/cv-maker',
-  },
-  {
-    id: 'cv-analyser',
-    name: 'Kairos',
-    description: 'Rewrite your CV based on the job description ',
-    icon: '🔍',
-    category: 'productivity',
-    path: '/tool/cv-analyser',
-  },
-  {
-    id: 'cover-letter',
-    name: 'Peitho',
-    description: 'Write tailored cover letters',
-    icon: '✉️',
-    category: 'productivity',
-    path: '/tool/cover-letter',
-  },
-  {
-    id: 'essay-writer',
-    name: 'Scribe',
-    description: 'Write academic and professional essays',
-    icon: '📑',
-    category: 'productivity',
-    path: '/tool/essay-writer',
-  },
-  {
-    id: 'email-composer',
-    name: 'Litterae',
-    description: 'Write professional emails fast',
-    icon: '📨',
-    category: 'productivity',
-    path: '/tool/email-composer',
-  },
-  
-  
-  
-  {
-  id: 'dojo',
-  name: 'omnis',
-  description: 'Learn any topic by chatting, generating summaries, quizzes, and podcasts',
-  icon: '🥋',
-  category: 'general',
-  path: '/tool/dojo',
-},
+  { id: 'chat', name: 'Chat', description: 'General AI assistant', category: 'general', path: '/chat' },
+  { id: 'math', name: 'Math Mode', description: 'Step-by-step problem solving', category: 'general', path: '/tool/math' },
+  { id: 'codex', name: 'Codex', description: 'Code generation and debugging', category: 'technical', path: '/tool/codex' },
+  { id: 'cv-maker', name: 'CV Maker', description: 'Generate a professional CV', category: 'productivity', path: '/tool/cv-maker' },
+  { id: 'cv-analyser', name: 'CV Analyser', description: 'Rewrite your CV for any job', category: 'productivity', path: '/tool/cv-analyser' },
+  { id: 'cover-letter', name: 'Cover Letter', description: 'Write tailored cover letters', category: 'productivity', path: '/tool/cover-letter' },
+  { id: 'essay-writer', name: 'Essay Writer', description: 'Academic and professional essays', category: 'productivity', path: '/tool/essay-writer' },
+  { id: 'email-composer', name: 'Email Composer', description: 'Write professional emails fast', category: 'productivity', path: '/tool/email-composer' },
+  { id: 'dojo', name: 'Dojo', description: 'Chat with your documents', category: 'general', path: '/tool/dojo' },
 ]
 
 export const toolCategories = [
   { id: 'general', label: 'General' },
   { id: 'productivity', label: 'Productivity' },
   { id: 'technical', label: 'Technical' },
-  { id: 'creative', label: 'Creative' },
   { id: 'business', label: 'Business' },
 ]
 

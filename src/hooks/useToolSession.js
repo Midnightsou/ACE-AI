@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import LZString from 'lz-string'
 import { useUserStore } from '../store/userStore'
+import { useToast } from '../components/ui/Toast'
 import {
   createFormToolSession,
   updateFormToolSession,
@@ -52,6 +53,7 @@ function decompress(state) {
 
 export function useToolSession(toolId, toolName, icon) {
   const user = useUserStore((s) => s.user)
+  const { toast } = useToast()
   const [sessionId, setSessionId] = useState(null)
   const [restoring, setRestoring] = useState(false)
 
@@ -63,12 +65,15 @@ export function useToolSession(toolId, toolName, icon) {
         const newId = await createFormToolSession(user.uid, toolId, toolName, icon, title)
         setSessionId(newId)
         await updateFormToolSession(user.uid, newId, title, compressed)
+        toast.success('Session saved')
         return newId
       }
       await updateFormToolSession(user.uid, sessionId, title, compressed)
+      toast.success('Session saved')
       return sessionId
     } catch (err) {
       console.error('saveSession error:', err)
+      toast.error('Failed to save session')
       return null
     }
   }
@@ -83,6 +88,7 @@ export function useToolSession(toolId, toolName, icon) {
       return state
     } catch (err) {
       console.error('loadSession error:', err)
+      toast.error('Failed to load session')
       return null
     } finally {
       setRestoring(false)

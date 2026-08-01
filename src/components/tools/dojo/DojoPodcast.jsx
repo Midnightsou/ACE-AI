@@ -4,14 +4,15 @@ import { useDojo } from '../../../hooks/useDojo'
 import { buildPodcastPrompt } from '../../../prompts/tools/dojoPrompt'
 import { parsePodcastScript } from '../../../services/podcast'
 import PodcastPlayer from './PodcastPlayer'
+import { useToast } from '../../../components/ui/Toast'
 
 export default function DojoPodcast() {
   const { readySources, generateContent, generatingTab, generatedContent } = useDojo()
   const { podcastScript, setPodcastScript } = useDojoStore()
+  const { toast } = useToast()
 
   const [generating, setGenerating] = useState(false)
   const [error, setError] = useState(null)
-  const [copied, setCopied] = useState(false)
   const [playerReady, setPlayerReady] = useState(false)
 
   const script = podcastScript || generatedContent['podcast']
@@ -27,6 +28,7 @@ export default function DojoPodcast() {
       if (content) setPodcastScript(content)
     } catch (_err) {
       setError('Failed to generate podcast script. Try again.')
+      toast.error('Failed to generate podcast script. Check your connection.')
     } finally {
       setGenerating(false)
     }
@@ -35,8 +37,7 @@ export default function DojoPodcast() {
   async function handleCopyScript() {
     if (!script) return
     await navigator.clipboard.writeText(script)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
+    toast.success('Copied to clipboard')
   }
 
   function handleDownloadScript() {
@@ -79,7 +80,7 @@ export default function DojoPodcast() {
               onClick={handleCopyScript}
               className="text-xs text-zinc-400 hover:text-violet-600 transition-colors"
             >
-              {copied ? '✓ Copied' : 'Copy script'}
+              Copy script
             </button>
             <button
               onClick={handleDownloadScript}

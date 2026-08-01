@@ -1,5 +1,3 @@
-import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import { useUserStore } from '../store/userStore'
 import { updateProfile } from '../services/memory'
@@ -7,6 +5,7 @@ import Sidebar from '../components/sidebar/Sidebar'
 import { updatePassword, EmailAuthProvider, reauthenticateWithCredential } from 'firebase/auth'
 import { auth } from '../services/firebase'
 import ThemeToggle from '../components/ui/ThemeToggle'
+import { useToast } from '../components/ui/Toast'
 
 const languages = [
   { code: 'english', label: 'English', flag: '🇬🇧' },
@@ -21,11 +20,11 @@ export default function ProfilePage() {
   const user = useUserStore((s) => s.user)
   const setUser = useUserStore((s) => s.setUser)
 
+  const { toast } = useToast()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [name, setName] = useState(user?.profile?.name || '')
   const [language, setLanguage] = useState(user?.profile?.language || 'english')
   const [saving, setSaving] = useState(false)
-  const [saved, setSaved] = useState(false)
   const [error, setError] = useState(null)
   
   const [currentPassword, setCurrentPassword] = useState('')
@@ -33,7 +32,6 @@ export default function ProfilePage() {
   const [confirmPassword, setConfirmPassword] = useState('')
   const [passwordSaving, setPasswordSaving] = useState(false)
   const [passwordError, setPasswordError] = useState(null)
-  const [passwordSaved, setPasswordSaved] = useState(false)
 
   async function handleSave() {
     setSaving(true)
@@ -44,10 +42,10 @@ export default function ProfilePage() {
         ...user,
         profile: { ...user.profile, name, language },
       })
-      setSaved(true)
-      setTimeout(() => setSaved(false), 2500)
+      toast.success('Profile saved')
     } catch (err) {
       setError('Failed to save. Check your connection.')
+      toast.error('Failed to save. Check your connection.')
       console.error(err)
     } finally {
       setSaving(false)
@@ -71,16 +69,17 @@ export default function ProfilePage() {
       const credential = EmailAuthProvider.credential(user.email, currentPassword)
       await reauthenticateWithCredential(auth.currentUser, credential)
       await updatePassword(auth.currentUser, newPassword)
-      setPasswordSaved(true)
+      toast.success('Password updated')
       setCurrentPassword('')
       setNewPassword('')
       setConfirmPassword('')
-      setTimeout(() => setPasswordSaved(false), 3000)
     } catch (err) {
       if (err.code === 'auth/wrong-password') {
         setPasswordError('Current password is incorrect.')
+        toast.error('Current password is incorrect.')
       } else {
         setPasswordError('Failed to update password. Try again.')
+        toast.error('Failed to update password. Try again.')
       }
     } finally {
       setPasswordSaving(false)
@@ -191,13 +190,6 @@ export default function ProfilePage() {
                       <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                       Saving...
                     </>
-                  ) : saved ? (
-                    <>
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-                        <path d="M20 6L9 17l-5-5"/>
-                      </svg>
-                      Saved
-                    </>
                   ) : (
                     'Save changes'
                   )}
@@ -267,8 +259,6 @@ export default function ProfilePage() {
                       <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                       Updating...
                     </>
-                  ) : passwordSaved ? (
-                    '✓ Password updated'
                   ) : (
                     'Update password'
                   )}

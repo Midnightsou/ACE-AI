@@ -13,7 +13,9 @@ import { useEssayStore } from '../../store/essayStore'
 import { useEmailStore } from '../../store/emailStore'
 import { useDojoStore } from '../../store/dojoStore'
 import { deleteConversation, renameConversation, loadConversations } from '../../services/memory'
+import { SidebarSkeleton } from '../ui/Skeleton'
 import ConversationSearch from '../chat/ConversationSearch'
+import { ToolIcon, ChatIcon, PlusIcon, GridIcon, SearchIcon, DotsIcon, TrashIcon, EditIcon, ProfileIcon } from '../ui/ToolIcons'
 
 export default function Sidebar({ isOpen, onClose }) {
   const user = useUserStore((s) => s.user)
@@ -33,12 +35,15 @@ export default function Sidebar({ isOpen, onClose }) {
   const [menuOpen, setMenuOpen] = useState(null) // holds convo id
   const [renaming, setRenaming] = useState(null) // holds convo id
   const [renameValue, setRenameValue] = useState('')
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     if (!user?.uid) return
+    setLoading(true)
     loadConversations(user.uid)
       .then((convos) => setConversations(convos))
       .catch((err) => console.error('Failed to load conversations:', err))
+      .finally(() => setLoading(false))
   }, [user?.uid, setConversations])
 
   useEffect(() => {
@@ -178,9 +183,7 @@ export default function Sidebar({ isOpen, onClose }) {
               onClick={handleNewChat}
               className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl border border-zinc-700 hover:bg-zinc-800 transition-colors text-sm text-zinc-300 hover:text-white"
             >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                <path d="M12 5v14M5 12h14"/>
-              </svg>
+              <PlusIcon size={16} className="text-zinc-400" />
               New chat
             </button>
           </div>
@@ -191,9 +194,7 @@ export default function Sidebar({ isOpen, onClose }) {
               onClick={() => setShowSearch(true)}
               className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl border border-zinc-700 hover:bg-zinc-800 transition-colors text-sm text-zinc-400 hover:text-white mt-2"
             >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>
-              </svg>
+              <SearchIcon size={14} className="text-zinc-500" />
               Search
               <kbd className="ml-auto text-xs bg-zinc-800 px-1.5 py-0.5 rounded text-zinc-500">⌘K</kbd>
             </button>
@@ -225,12 +226,7 @@ export default function Sidebar({ isOpen, onClose }) {
                   : 'text-zinc-400 hover:bg-zinc-800 hover:text-white'
                 }`}
             >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                <rect x="3" y="3" width="7" height="7" rx="1"/>
-                <rect x="14" y="3" width="7" height="7" rx="1"/>
-                <rect x="3" y="14" width="7" height="7" rx="1"/>
-                <rect x="14" y="14" width="7" height="7" rx="1"/>
-              </svg>
+              <GridIcon size={16} className="text-zinc-400" />
               All tools
             </button>
           </div>
@@ -257,7 +253,9 @@ export default function Sidebar({ isOpen, onClose }) {
 
             {showRecents && (
               <div className="flex flex-col gap-0.5 mt-1">
-                {conversations.length === 0 ? (
+                {loading ? (
+                  <SidebarSkeleton />
+                ) : conversations.length === 0 ? (
                   <p className="text-xs text-zinc-600 px-2 py-2">No history yet.</p>
                 ) : (
                   conversations.map((convo) => {
@@ -306,7 +304,11 @@ export default function Sidebar({ isOpen, onClose }) {
                                 : 'text-zinc-400 hover:bg-zinc-800 hover:text-white'
                               }`}
                           >
-                            {isTool && <span className="text-sm flex-shrink-0">{convo.icon}</span>}
+                            {isTool ? (
+                              <ToolIcon toolId={convo.toolId} size={14} className="text-zinc-400 flex-shrink-0" />
+                            ) : (
+                              <ChatIcon size={14} className="text-zinc-400 flex-shrink-0" />
+                            )}
                             <span className="truncate text-xs flex-1">
                               {convo.title || (isTool ? convo.toolName : 'New chat')}
                             </span>
@@ -324,9 +326,7 @@ export default function Sidebar({ isOpen, onClose }) {
                               text-zinc-500 hover:text-zinc-300 hover:bg-zinc-700 transition-colors
                               opacity-0 group-hover/item:opacity-100"
                           >
-                            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-                              <circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/>
-                            </svg>
+                            <DotsIcon size={12} />
                           </button>
                         )}
 
@@ -340,22 +340,14 @@ export default function Sidebar({ isOpen, onClose }) {
                               onClick={(e) => handleStartRename(e, convo)}
                               className="w-full flex items-center gap-2 px-3 py-2.5 text-xs text-zinc-300 hover:bg-zinc-700 transition-colors text-left"
                             >
-                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                                <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/>
-                                <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
-                              </svg>
+                              <EditIcon size={12} className="text-zinc-300" />
                               Rename
                             </button>
                             <button
                               onClick={(e) => handleDelete(e, convo.id)}
                               className="w-full flex items-center gap-2 px-3 py-2.5 text-xs text-red-400 hover:bg-zinc-700 transition-colors text-left"
                             >
-                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                                <polyline points="3 6 5 6 21 6"/>
-                                <path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/>
-                                <path d="M10 11v6M14 11v6"/>
-                                <path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/>
-                              </svg>
+                              <TrashIcon size={12} className="text-red-400" />
                               Delete
                             </button>
                           </div>
@@ -386,9 +378,7 @@ export default function Sidebar({ isOpen, onClose }) {
                 </p>
                 <p className="text-xs text-zinc-500 truncate">{user?.email}</p>
               </div>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#71717a" strokeWidth="2" strokeLinecap="round">
-                <path d="M9 18l6-6-6-6"/>
-              </svg>
+              <ProfileIcon size={16} className="text-zinc-400" />
             </button>
           </div>
         </div>

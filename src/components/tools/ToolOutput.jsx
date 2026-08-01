@@ -1,22 +1,27 @@
 import { useState } from 'react'
 import { downloadTextAsPDF } from '../../services/pdfExport'
+import { useToast } from '../../components/ui/Toast'
 
 export default function ToolOutput({ content, toolId, title }) {
-  const [copied, setCopied] = useState(false)
+  const { toast, dismiss } = useToast()
   const [downloading, setDownloading] = useState(false)
 
   async function handleCopy() {
     await navigator.clipboard.writeText(content)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
+    toast.success('Copied to clipboard')
   }
 
   async function handleDownloadPDF() {
     if (!content) return
     setDownloading(true)
+    const id = toast.loading('Preparing PDF...')
     try {
       await downloadTextAsPDF(content, `${title || toolId}-ace.pdf`)
+      toast.success('PDF downloaded')
+    } catch {
+      toast.error('PDF export failed')
     } finally {
+      dismiss(id)
       setDownloading(false)
     }
   }
@@ -42,7 +47,7 @@ export default function ToolOutput({ content, toolId, title }) {
             onClick={handleCopy}
             className="flex items-center gap-1.5 text-xs text-zinc-400 hover:text-violet-600 transition-colors px-2 py-1"
           >
-            {copied ? '✓ Copied' : 'Copy'}
+            Copy
           </button>
           <button
             onClick={handleDownloadTXT}

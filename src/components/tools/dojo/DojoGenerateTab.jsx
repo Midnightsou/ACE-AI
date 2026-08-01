@@ -1,5 +1,5 @@
-import { useState } from 'react'
 import { useDojo } from '../../../hooks/useDojo'
+import { useToast } from '../../../components/ui/Toast'
 import {
   buildSummaryPrompt,
   buildKeyConceptsPrompt,
@@ -32,7 +32,7 @@ const TAB_CONFIG = {
 
 export default function DojoGenerateTab({ tabId }) {
   const { generateContent, generatingTab, generatedContent, readySources } = useDojo()
-  const [copied, setCopied] = useState(false)
+  const { toast } = useToast()
 
   const config = TAB_CONFIG[tabId]
   const content = generatedContent[tabId]
@@ -43,8 +43,7 @@ export default function DojoGenerateTab({ tabId }) {
   async function handleCopy() {
     if (!content) return
     await navigator.clipboard.writeText(content)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
+    toast.success('Copied to clipboard')
   }
 
   if (readySources.length === 0) {
@@ -75,7 +74,7 @@ export default function DojoGenerateTab({ tabId }) {
             onClick={handleCopy}
             className="flex items-center gap-1.5 text-xs text-zinc-400 hover:text-violet-600 transition-colors"
           >
-            {copied ? '✓ Copied' : 'Copy'}
+            Copy
           </button>
         )}
       </div>

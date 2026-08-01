@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useToast } from '../../components/ui/Toast'
 
 function parseEmail(content) {
   if (!content) return { subject: '', body: '' }
@@ -15,7 +15,7 @@ function parseEmail(content) {
 }
 
 export default function EmailPreview({ content, streaming, recipientName, senderName }) {
-  const [copied, setCopied] = useState(false)
+  const { toast } = useToast()
   const { subject, body } = parseEmail(content)
 
   async function handleCopy() {
@@ -23,8 +23,7 @@ export default function EmailPreview({ content, streaming, recipientName, sender
     await navigator.clipboard.writeText(
       subject ? `Subject: ${subject}\n\n${body}` : body
     )
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
+    toast.success('Copied to clipboard')
   }
 
   return (
@@ -38,22 +37,11 @@ export default function EmailPreview({ content, streaming, recipientName, sender
             onClick={handleCopy}
             className="flex items-center gap-1.5 text-xs text-zinc-500 hover:text-violet-600 transition-colors"
           >
-            {copied ? (
-              <>
-                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-                  <path d="M20 6L9 17l-5-5"/>
-                </svg>
-                Copied
-              </>
-            ) : (
-              <>
-                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                  <rect x="9" y="9" width="13" height="13" rx="2"/>
-                  <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>
-                </svg>
-                Copy email
-              </>
-            )}
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              <rect x="9" y="9" width="13" height="13" rx="2"/>
+              <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>
+            </svg>
+            Copy email
           </button>
         )}
       </div>

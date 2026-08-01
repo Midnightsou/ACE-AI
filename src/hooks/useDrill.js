@@ -13,8 +13,7 @@ import {
   MODELS,
 } from '../services/deepseekClient'
 
-async function callAI(prompt, apiKey) {
-  // NOTE: apiKey kept for compatibility, but complete() may manage auth internally
+async function callAI(prompt) {
   return complete({
     model: MODELS.chat,
     messages: [
@@ -30,7 +29,6 @@ async function callAI(prompt, apiKey) {
 
 export function useDrill() {
   const user = useUserStore((s) => s.user)
-  const apiKey = import.meta.env.VITE_FEATHERLESS_API_KEY
 
   const [subject, setSubject] = useState('Mathematics')
   const [question, setQuestion] = useState(null)
@@ -52,7 +50,7 @@ export function useDrill() {
 
     try {
       const prompt = buildDrillPrompt(subject)
-      const raw = await callAI(prompt, apiKey)
+      const raw = await callAI(prompt)
       const parsed = parseDrillQuestion(raw)
       setQuestion(parsed)
     } catch (err) {
@@ -79,7 +77,7 @@ export function useDrill() {
         }`
       )
 
-      const raw = await callAI(prompt, apiKey)
+      const raw = await callAI(prompt)
       const parsed = parseEvaluation(raw)
 
       setEvaluation(parsed)

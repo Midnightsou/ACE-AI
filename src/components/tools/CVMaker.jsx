@@ -1,6 +1,5 @@
 import { useRef, useEffect, useState } from 'react'
 import { useCVMakerStore } from '../../store/cvStore'
-import { useUserStore } from '../../store/userStore'
 import { useTool } from '../../hooks/useTool'
 import { useToolSession } from '../../hooks/useToolSession'
 import { useLocation } from 'react-router-dom'
@@ -35,8 +34,6 @@ export default function CVMaker() {
   const setLiveCV = useCVMakerStore((s) => s.setLiveCV)
   const reset = useCVMakerStore((s) => s.reset)
 
-  const user = useUserStore((s) => s.user)
-
 
   useEffect(() => {
     const sid = location.state?.sessionId
@@ -51,17 +48,17 @@ export default function CVMaker() {
         setStep(3)
       }
     })
-  }, [location.state?.sessionId])
+  }, [location.state?.sessionId, loadSession, setForm, setLiveCV, setOutput, setStep, setStyle])
 
 
 
 
   // Save to Firestore whenever output changes
    useEffect(() => {
-    if (!output) return
-    const title = `CV — ${form.fullName || form.targetRole || 'Untitled'}`
-    saveSession({ form, style, output, step }, title)
-  }, [output])
+     if (!output) return
+     const title = `CV — ${form.fullName || form.targetRole || 'Untitled'}`
+     saveSession({ form, style, output, step }, title)
+   }, [output, form, saveSession, step, style])
 
   const { streaming, loading, error, generate } = useTool('cv-maker')
   const cvRef = useRef(null)

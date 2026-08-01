@@ -150,7 +150,7 @@ export default function PricingPage() {
         })
         handler.openIframe()
       }
-    } catch (err) {
+    } catch {
       setError('Payment failed. Try again.')
       setLoading(false)
     }

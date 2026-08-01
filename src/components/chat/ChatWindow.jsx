@@ -1,6 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useChat } from '../../hooks/useChat'
-import { useChatStore } from '../../store/chatStore'
 import { useUserStore } from '../../store/userStore'
 import MessageBubble from './MessageBubble'
 import TypingIndicator from './TypingIndicator'
@@ -19,11 +18,14 @@ const languageLabels = {
 }
 
 export default function ChatWindow() {
-  const { messages, loading, send, fileContext, attachFile, clearFile, streamingContent } = useChat()
+  const {
+    messages, streamingContent, loading,
+    fileContext, setFileContext,
+    isSearching,
+    send, handleEdit,
+  } = useChat()
   const user = useUserStore((s) => s.user)
   const bottomRef = useRef(null)
-  const editMessage = useChatStore((s) => s.editMessage)
-  const truncateFrom = useChatStore((s) => s.truncateFrom)
 
   const language = user?.profile?.language || 'english'
   const activeConversationId = useConversationStore((s) => s.activeConversationId)
@@ -52,31 +54,11 @@ export default function ChatWindow() {
     }
   }
 
-  const handleEdit = useCallback(async (index, newContent) => {
-    // Truncate messages from this index (removes the old message + all after it)
-    truncateFrom(index)
-    // Resend as a new message
-    send(newContent)
-  }, [send, truncateFrom])
-
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages, loading])
+  }, [messages, loading, isSearching, streamingContent])
 
   const name = user?.profile?.name || 'there'
-
-  const messagesList = useMemo(
-    () =>
-      messages.map((msg, i) => (
-        <MessageBubble
-          key={i}
-          message={msg}
-          index={i}
-          onEdit={handleEdit}
-        />
-      )),
-    [messages, handleEdit]
-  )
 
   return (
     <div className="flex flex-col flex-1 min-h-0">
@@ -109,7 +91,7 @@ export default function ChatWindow() {
       </div>
 
       {/* File context banner */}
-      <FileContextBanner file={fileContext} onClear={clearFile} />
+      <FileContextBanner file={fileContext} onClear={() => setFileContext(null)} />
 
       {/* Messages */}
       <div className="flex-1 min-h-0 overflow-y-auto">
@@ -144,20 +126,46 @@ export default function ChatWindow() {
           </div>
         )}
 
-        {messagesList}
+        {messages.map((msg, i) => (
+          <MessageBubble
+            key={i}
+            message={msg}
+            index={i}
+            onEdit={handleEdit}
+          />
+        ))}
 
-        {streamingContent
-          ? <StreamingBubble content={streamingContent} />
-          : loading && <TypingIndicator />
-        }
+        {/* Searching indicator */}
+        {isSearching && (
+          <div className="flex justify-start mb-3">
+            <div className="w-8 h-8 rounded-full bg-violet-600 flex items-center justify-center text-white text-xs font-bold mr-2 flex-shrink-0">
+              A
+            </div>
+            <div className="bg-white border border-zinc-100 shadow-sm px-4 py-3 rounded-2xl flex items-center gap-2">
+              <div className="w-3.5 h-3.5 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
+              <span className="text-sm text-zinc-500">Searching the web...</span>
+            </div>
+          </div>
+        )}
+
+        {/* Streaming */}
+        {streamingContent && !isSearching && (
+          <StreamingBubble content={streamingContent} />
+        )}
+
+        {/* Loading dots */}
+        {loading && !streamingContent && !isSearching && (
+          <TypingIndicator />
+        )}
+
         <div ref={bottomRef} />
       </div>
 
       {/* Input */}
       <InputBar
         onSend={send}
-        onFileExtracted={attachFile}
-        disabled={loading}
+        onFileExtracted={setFileContext}
+        disabled={loading || isSearching}
       />
     </div>
   )

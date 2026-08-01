@@ -1,13 +1,13 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
 export default function SplashScreen({ onComplete }) {
   const [isExiting, setIsExiting] = useState(false)
   const videoRef = useRef(null)
 
-  const handleVideoEnd = () => {
+  const handleVideoEnd = useCallback(() => {
     setIsExiting(true)
     setTimeout(() => onComplete?.(), 500) // Allow fade-out animation
-  }
+  }, [onComplete])
 
   useEffect(() => {
     const video = videoRef.current
@@ -15,7 +15,7 @@ export default function SplashScreen({ onComplete }) {
       video.addEventListener('ended', handleVideoEnd)
       return () => video.removeEventListener('ended', handleVideoEnd)
     }
-  }, [])
+  }, [handleVideoEnd])
 
   return (
     <div

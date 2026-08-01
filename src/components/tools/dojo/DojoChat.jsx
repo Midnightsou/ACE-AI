@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useAutoResize } from '../../../hooks/useAutoResize'
 import { useDojo } from '../../../hooks/useDojo'
-import { useDojoStore } from '../../../store/dojoStore'
 
 const QUICK_QUESTIONS = [
   'Summarize the main points from all sources',

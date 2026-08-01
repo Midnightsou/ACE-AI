@@ -1,6 +1,104 @@
 import { memo, useState, useRef } from 'react'
 import { useUserStore } from '../../store/userStore'
 
+function SourceCard({ citation }) {
+  return (
+    <a
+      href={citation.url}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="flex items-start gap-3 p-3 rounded-xl border border-zinc-100 hover:border-violet-300 hover:bg-violet-50 transition-all group cursor-pointer"
+    >
+      {/* Favicon */}
+      <img
+        src={`https://www.google.com/s2/favicons?domain=${citation.domain}&sz=16`}
+        alt=""
+        className="w-4 h-4 rounded mt-0.5 flex-shrink-0"
+        onError={(e) => { e.target.style.display = 'none' }}
+      />
+      <div className="flex-1 min-w-0">
+        <p className="text-xs font-medium text-zinc-700 group-hover:text-violet-700 truncate transition-colors">
+          {citation.title}
+        </p>
+        <p className="text-xs text-zinc-400 mt-0.5 truncate">{citation.domain}</p>
+      </div>
+      <svg className="w-3 h-3 text-zinc-300 group-hover:text-violet-400 flex-shrink-0 mt-0.5 transition-colors" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+        <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/>
+        <polyline points="15 3 21 3 21 9"/>
+        <line x1="10" y1="14" x2="21" y2="3"/>
+      </svg>
+    </a>
+  )
+}
+
+function renderMessageContent(content) {
+  if (!content) return null
+
+  const dividerPattern = '━━━ Sources ━━━'
+  const parts = content.split(dividerPattern)
+  const mainText = parts[0].trim()
+  const sourcesRaw = parts[1]
+
+  // Parse inline citations [1], [2] etc from main text
+  const renderWithInlineCitations = (text) => {
+    const segments = text.split(/(\[\d+\])/g)
+    return segments.map((seg, i) => {
+      const match = seg.match(/^\[(\d+)\]$/)
+      if (match) {
+        return (
+          <sup key={i} className="text-violet-500 font-medium text-xs cursor-default" title={`Source ${match[1]}`}>
+            [{match[1]}]
+          </sup>
+        )
+      }
+      return <span key={i}>{seg}</span>
+    })
+  }
+
+  // Parse sources block into structured citations
+  const parseSources = (raw) => {
+    if (!raw) return []
+    const blocks = raw.trim().split('\n\n').filter(Boolean)
+    return blocks.map((block) => {
+      const lines = block.trim().split('\n')
+      const titleLine = lines[0] || ''
+      const urlLine = lines[1] || ''
+      const titleMatch = titleLine.match(/^\[Source \d+\]\s*(.+)/)
+      const title = titleMatch?.[1] || titleLine.replace(/^\[\d+\]\s*/, '')
+      const url = urlLine.trim()
+      if (!url.startsWith('http')) return null
+      let domain = ''
+      try { domain = new URL(url).hostname.replace('www.', '') } catch { /* ignore invalid URL */ }
+      return { title, url, domain }
+    }).filter(Boolean)
+  }
+
+  const citations = parseSources(sourcesRaw)
+
+  return (
+    <div>
+      {/* Main response text with inline citation numbers */}
+      <p className="text-sm leading-relaxed whitespace-pre-wrap">
+        {renderWithInlineCitations(mainText)}
+      </p>
+
+      {/* Source cards */}
+      {citations.length > 0 && (
+        <div className="mt-4 pt-3 border-t border-zinc-100">
+          <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2">
+            Sources
+          </p>
+          <div className="flex flex-col gap-1.5">
+            {citations.map((c, i) => (
+              <SourceCard key={i} citation={c} />
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 const MessageBubble = memo(function MessageBubble({ message, index, onEdit }) {
   const user = useUserStore((s) => s.user)
   const isUser = message.role === 'user'
@@ -81,7 +179,7 @@ const MessageBubble = memo(function MessageBubble({ message, index, onEdit }) {
                   : 'bg-white text-zinc-800 rounded-tl-sm border border-zinc-100 shadow-sm'
                 }`}
             >
-              {message.content}
+              {renderMessageContent(message.content)}
             </div>
 
             {/* Edit button — only for user messages */}

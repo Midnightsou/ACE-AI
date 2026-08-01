@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom'
 
-export default function UpgradePrompt({ message, feature, onClose }) {
+export default function UpgradePrompt({ message, onClose }) {
   const navigate = useNavigate()
 
   return (

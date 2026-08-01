@@ -1,216 +1,221 @@
-import { useEffect, useRef, useState } from 'react'
+import { useState, useRef } from 'react'
 import { useChatStore } from '../store/chatStore'
-import { useUserStore } from '../store/userStore'
 import { useConversationStore } from '../store/conversationStore'
-import { sendMessage } from '../services/deepseek'
-import { fetchURLContent } from '../services/urlFetcher'
-
+import { useUserStore } from '../store/userStore'
+import { streamCompletion, MODELS } from '../services/deepseekClient'
+import { buildSystemPrompt } from '../prompts/systemPrompt'
 import {
   createConversation,
   saveMessage,
   loadMessages,
-  getMessageCount,
   incrementMessageCount,
-  updateStreak,
 } from '../services/memory'
-import { canUseFeature, getUpgradeMessage } from '../config/pricing'
+import {
+  searchWeb,
+  needsWebSearch,
+  extractSearchQuery,
+  buildSearchContext,
+} from '../services/webSearch'
+import { fetchURLContent } from '../services/urlFetcher'
+import { canUseFeature } from '../config/pricing'
 
 export function useChat() {
   const {
-    messages,
-    loading,
-    streamingContent,
-    addMessage,
-    setMessages,
-    setLoading,
-    setStreamingContent,
-    clearStreaming,
-    finalizeStreamingMessage,
-    clearMessages,
+    messages, streamingContent, loading,
+    addMessage, setStreamingContent, setLoading,
+    clearMessages, truncateFrom,
+    restoredConvId, setRestoredConvId,
   } = useChatStore()
 
-  const user = useUserStore((s) => s.user)
   const {
     activeConversationId,
-    setActiveConversationId,
-    addConversation,
+    setActiveConversationId, setConversations,
     bringToTop,
   } = useConversationStore()
 
+  const user = useUserStore((s) => s.user)
   const [fileContext, setFileContext] = useState(null)
+  const [searchCitations, setSearchCitations] = useState([])
+  const [isSearching, setIsSearching] = useState(false)
   const abortRef = useRef(null)
 
-  // Load messages when active conversation changes
-  useEffect(() => {
-    if (!activeConversationId || !user?.uid) return
-    clearMessages()
-
-    loadMessages(user.uid, activeConversationId)
-      .then((msgs) => setMessages(msgs))
-      .catch((err) => console.error('Failed to load messages:', err))
-  }, [activeConversationId])
-
-  function attachFile(extracted) {
-    setFileContext(extracted)
-  }
-
-  function clearFile() {
-    setFileContext(null)
-  }
-
   async function send(text) {
-    if (!text.trim()) return
+    if (!text.trim() || loading) return
 
-    if (abortRef.current) {
-      abortRef.current.abort()
-    }
-
+    // Abort any in-flight request
+    if (abortRef.current) abortRef.current.abort()
     abortRef.current = new AbortController()
-    const controller = abortRef.current
 
     const profile = user?.profile
-    const messageCount = profile?.dailyMessageCount || 0
-    const allowed = canUseFeature(profile, 'message', messageCount)
-
+    const allowed = canUseFeature(profile, 'message', profile?.dailyMessageCount || 0)
     if (!allowed) {
       addMessage({
         role: 'assistant',
-        content: `${getUpgradeMessage('message')}\n\nGo to Settings → Pricing to upgrade.`,
+        content: 'You have used all your free messages today. Upgrade to Pro for 200 messages per day. Go to Profile to upgrade.',
       })
       return
     }
 
-    let fullContent = text
-    let enrichedBlocks = []
-
-    // URL detection + fetching
-    const urlMatches = text.match(/(https?:\/\/[^\s]+)/g)
-    if (urlMatches && urlMatches.length > 0) {
-      try {
-        const fetchedContents = await Promise.all(
-          urlMatches.slice(0, 2).map(async (url) => {
-            const cleanUrl = url.replace(/[),.]+$/, '')
-            const content = await fetchURLContent(cleanUrl)
-            return `[Content from ${cleanUrl}]:\n${content}`
-          })
-        )
-        enrichedBlocks.push(...fetchedContents)
-      } catch (err) {
-        console.warn('URL fetch failed:', err)
-      }
-    }
-
-    // File context injection
-    if (fileContext?.content) {
-      const sourceLabel =
-        fileContext.type === 'pdf'
-          ? `PDF titled "${fileContext.name}"`
-          : `image titled "${fileContext.name}"`
-
-      enrichedBlocks.push(
-        `The student has uploaded a ${sourceLabel}. Here is the extracted text content:\n\n${fileContext.content.slice(0, 6000)}`
-      )
-
-      setFileContext(null)
-    }
-
-    // Combine everything
-    if (enrichedBlocks.length > 0) {
-      fullContent = `${enrichedBlocks.join('\n\n---\n\n')}\n\n---\n\nStudent's question: ${text}`
-    }
-
     const userMessage = { role: 'user', content: text }
-    const messageForAI = { role: 'user', content: fullContent }
-
     addMessage(userMessage)
     setLoading(true)
-    clearStreaming()
+    setStreamingContent('')
+    setSearchCitations([])
 
     try {
-      let conversationId = activeConversationId
+      let convId = activeConversationId
 
-      if (!conversationId) {
-        conversationId = await createConversation(user.uid, text)
-        setActiveConversationId(conversationId)
-        addConversation({
-          id: conversationId,
-          title: text.slice(0, 40) + (text.length > 40 ? '...' : ''),
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        })
+      if (!convId) {
+        const title = text.slice(0, 50) + (text.length > 50 ? '...' : '')
+        convId = await createConversation(user.uid, title)
+        setActiveConversationId(convId)
+        const updated = await import('../services/memory').then((m) => m.loadConversations(user.uid))
+        setConversations(updated)
       }
 
-      await saveMessage(user.uid, conversationId, userMessage)
+      await saveMessage(user.uid, convId, userMessage)
 
-      const history = [...messages, messageForAI]
-      let finalReply = ''
+      // ── Step 1: Check for URLs in message ────────────────
+      let enrichedText = text
+      const urlMatches = text.match(/https?:\/\/[^\s]+/g)
+      if (urlMatches?.length) {
+        try {
+          const fetched = await Promise.all(
+            urlMatches.slice(0, 2).map(async (url) => {
+              const content = await fetchURLContent(url)
+              return `[Content from ${url}]:\n${content.slice(0, 3000)}`
+            })
+          )
+          enrichedText += '\n\n' + fetched.join('\n\n')
+        } catch {
+          // silently fail
+        }
+      }
 
-      await sendMessage({
-        messages: history,
-        profile: user?.profile || {},
-        recentMessages: messages.slice(-4),
-        apiKey: import.meta.env.VITE_FEATHERLESS_API_KEY,
-        signal: controller.signal,
-        onChunk: (content) => {
-          setStreamingContent(content)
-          finalReply = content
+      // ── Step 2: Web search if needed ──────────────────────
+      let searchSystemContext = ''
+      let citations = []
+
+      if (needsWebSearch(text)) {
+        setIsSearching(true)
+        try {
+          const cleanedQuery = extractSearchQuery(text)
+          const results = await searchWeb(cleanedQuery)
+          if (results?.length) {
+            const { systemContext, citations: cites } = buildSearchContext(results)
+            searchSystemContext = systemContext
+            citations = cites
+            setSearchCitations(cites)
+          }
+        } catch {
+          // silently fail
+        }
+        setIsSearching(false)
+      }
+
+      // ── Step 3: Build system prompt ───────────────────────
+      const basePrompt = buildSystemPrompt(profile, messages)
+      const fullSystemPrompt = searchSystemContext
+        ? basePrompt + '\n\n' + searchSystemContext
+        : basePrompt
+
+      // ── Step 4: Build messages for AI ─────────────────────
+      const fileContextText = fileContext?.content
+        ? `\n\n[Uploaded file: ${fileContext.name}]\n${fileContext.content.slice(0, 8000)}`
+        : ''
+
+      const historyMessages = [
+        ...messages.slice(-10).map((m) => ({
+          role: m.role,
+          content: m.content,
+        })),
+        {
+          role: 'user',
+          content: enrichedText + fileContextText,
         },
+      ]
+
+      // ── Step 5: Stream response ───────────────────────────
+      const fullContent = await streamCompletion({
+        model: MODELS.chat,
+        messages: [
+          { role: 'system', content: fullSystemPrompt },
+          ...historyMessages,
+        ],
+        temperature: 0.5,
+        maxTokens: 4096,
+        onChunk: (content) => setStreamingContent(content),
+        signal: abortRef.current.signal,
       })
 
-      finalizeStreamingMessage()
+      // ── Step 6: Append citation list to response ──────────
+      let finalContent = fullContent
 
-      const assistantMessage = { role: 'assistant', content: finalReply }
-      await saveMessage(user.uid, conversationId, assistantMessage)
+      if (citations.length > 0) {
+        const usedCitations = citations.filter((c) =>
+          fullContent.includes(`[Source ${c.index}]`)
+        )
+        if (usedCitations.length > 0) {
+          finalContent += '\n\n━━━ Sources ━━━\n' +
+            usedCitations.map((c) =>
+              `[Source ${c.index}] ${c.title}\n${c.url}`
+            ).join('\n\n')
+        }
+      }
 
-      bringToTop(conversationId)
+      const assistantMessage = { role: 'assistant', content: finalContent }
+      addMessage(assistantMessage)
+      setStreamingContent('')
+
+      await saveMessage(user.uid, convId, assistantMessage)
       await incrementMessageCount(user.uid)
-      await updateStreak(user.uid)
+      bringToTop(convId)
 
     } catch (err) {
-      if (err?.name === 'AbortError') {
-        return
-      }
-
-      clearStreaming()
-
-      const status = err?.status || err?.response?.status
-      const errorMessages = {
-        402: 'AI credits are empty. Contact support.',
-        401: 'Invalid API key. Check configuration.',
-        429: 'Too many requests. Wait a moment and try again.',
-        503: 'AI servers are down. Try again shortly.',
-      }
-
+      if (err.name === 'AbortError') return
+      setStreamingContent('')
       addMessage({
         role: 'assistant',
-        content:
-          errorMessages[status] ||
-          'Something went wrong. Check your connection and try again.',
+        content: 'Something went wrong. Check your connection and try again.',
       })
-
-      console.error('AI error:', err)
+      console.error('Chat error:', err)
     } finally {
-      if (abortRef.current === controller) {
-        abortRef.current = null
-        setLoading(false)
-      }
+      setLoading(false)
+      setIsSearching(false)
+      setStreamingContent('')
     }
   }
 
-  async function startNewChat() {
-    setActiveConversationId(null)
-    clearMessages()
+  async function loadConversation(convId) {
+    if (restoredConvId === convId) return // Already loaded, don't re-fetch
+    try {
+      const msgs = await loadMessages(user.uid, convId)
+      clearMessages()
+      msgs.forEach((m) => addMessage(m))
+      setActiveConversationId(convId)
+      setRestoredConvId(convId)
+    } catch (err) {
+      console.error('Load conversation error:', err)
+    }
   }
-  
+
+  function startNewChat() {
+    if (abortRef.current) abortRef.current.abort()
+    clearMessages()
+    setActiveConversationId(null)
+    setSearchCitations([])
+    setFileContext(null)
+  }
+
+  function handleEdit(index, newContent) {
+    truncateFrom(index)
+    send(newContent)
+  }
 
   return {
-    messages,
-    loading,
-    streamingContent,
-    send,
-    startNewChat,
-    fileContext,
-    attachFile,
-    clearFile,
+    messages, streamingContent, loading,
+    fileContext, setFileContext,
+    searchCitations, isSearching,
+    send, loadConversation, startNewChat, handleEdit,
   }
 }

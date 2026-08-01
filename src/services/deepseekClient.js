@@ -59,7 +59,7 @@ export async function streamCompletion({
           fullContent += delta
           onChunk?.(fullContent)
         }
-      } catch { }
+      } catch (_e) { /* ignore parse errors on stream chunks */ }
     }
   }
 

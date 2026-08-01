@@ -6,8 +6,6 @@ import { useToolSession } from '../../hooks/useToolSession'
 import ToolLayout from './ToolLayout'
 import { buildOutlinePrompt, buildSectionPrompt } from '../../prompts/tools/essayPrompt'
 import { getToolById } from '../../tools/registry'
-import { saveToolSession } from '../../services/memory'
-import { useUserStore } from '../../store/userStore'
 import { streamCompletion, MODELS } from '../../services/deepseekClient'
 
 const tool = getToolById('essay-writer')
@@ -98,16 +96,15 @@ export default function EssayWriter() {
         setStep(2)
       }
     })
-  }, [location.state?.sessionId])
+  }, [location.state?.sessionId, loadSession, setEssay, setOutline, setStage, setStep, updateForm])
 
   useEffect(() => {
     if (!essay && !outline) return
     const state = { form, outline, essay, step, stage }
     const title = `Essay — ${form.topic?.slice(0, 40) || 'Untitled'}`
     saveSession(state, title)
-  }, [essay, outline])
+  }, [essay, outline, form, saveSession, stage, step])
 
-const user = useUserStore((s) => s.user)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const essayChat = useEssayChat((updated) => setLiveEssay(updated))
@@ -196,7 +193,7 @@ const user = useUserStore((s) => s.user)
       setEssay(fullEssay)
       setLiveEssay(fullEssay)
     }
-  } catch (err) {
+  } catch (_err) {
     setError('Failed to generate essay. Try again.')
   } finally {
     setLoading(false)

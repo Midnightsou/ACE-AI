@@ -45,7 +45,7 @@ When the user asks for changes:
 - Never explain what you changed — just return the full updated email`
 
     try {
-      const fullContent = await streamCompletion({
+      await streamCompletion({
         model: MODELS.chat,
 
         messages: [

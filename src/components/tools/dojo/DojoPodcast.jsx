@@ -25,7 +25,7 @@ export default function DojoPodcast() {
       await generateContent('podcast', buildPodcastPrompt)
       const content = useDojoStore.getState().generatedContent['podcast']
       if (content) setPodcastScript(content)
-    } catch (err) {
+    } catch (_err) {
       setError('Failed to generate podcast script. Try again.')
     } finally {
       setGenerating(false)

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useCallback, useState } from 'react'
 import { useUserStore } from '../store/userStore'
 import { useToolHistoryStore } from '../store/toolHistoryStore'
 import {
@@ -27,7 +27,7 @@ export function useTool(toolId) {
   const [error, setError] = useState(null)
   const [historyLoaded, setHistoryLoaded] = useState(false)
 
-  async function loadHistory() {
+  const loadHistory = useCallback(async () => {
     if (!user?.uid || !toolId || historyLoaded) return
 
     setLoading(toolId, true)
@@ -42,7 +42,7 @@ export function useTool(toolId) {
     } finally {
       setLoading(toolId, false)
     }
-  }
+  }, [user?.uid, toolId, historyLoaded, setLoading, setHistory])
 
   async function generate(systemPrompt, userPrompt, metadata = {}) {
     setLoadingLocal(true)

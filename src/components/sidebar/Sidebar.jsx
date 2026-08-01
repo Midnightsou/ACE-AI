@@ -3,7 +3,6 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import { useConversationStore } from '../../store/conversationStore'
 import { useUserStore } from '../../store/userStore'
 import { useChatStore } from '../../store/chatStore'
-import { useAuth } from '../../hooks/useAuth'
 import { useToolStore } from '../../store/toolStore'
 import { useCodexStore } from '../../store/codexStore'
 import { useMathStore } from '../../store/mathStore'
@@ -12,13 +11,11 @@ import { useCoverLetterStore } from '../../store/coverLetterStore'
 import { useEssayStore } from '../../store/essayStore'
 import { useEmailStore } from '../../store/emailStore'
 import { useDojoStore } from '../../store/dojoStore'
-import { tools, toolCategories } from '../../tools/registry'
-import { loadConversations, loadToolMessages } from '../../services/memory'
+import { deleteConversation, renameConversation, loadConversations } from '../../services/memory'
 import ConversationSearch from '../chat/ConversationSearch'
 
 export default function Sidebar({ isOpen, onClose }) {
   const user = useUserStore((s) => s.user)
-  const { logout } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
   const { activeTool, setActiveTool } = useToolStore()
@@ -30,15 +27,17 @@ export default function Sidebar({ isOpen, onClose }) {
   } = useConversationStore()
   const clearMessages = useChatStore((s) => s.clearMessages)
   const [showRecents, setShowRecents] = useState(true)
-  const [showTools, setShowTools] = useState(true)
   const [showSearch, setShowSearch] = useState(false)
+  const [menuOpen, setMenuOpen] = useState(null) // holds convo id
+  const [renaming, setRenaming] = useState(null) // holds convo id
+  const [renameValue, setRenameValue] = useState('')
 
   useEffect(() => {
     if (!user?.uid) return
     loadConversations(user.uid)
       .then((convos) => setConversations(convos))
       .catch((err) => console.error('Failed to load conversations:', err))
-  }, [user?.uid])
+  }, [user?.uid, setConversations])
 
   useEffect(() => {
     function handleKey(e) {
@@ -50,6 +49,13 @@ export default function Sidebar({ isOpen, onClose }) {
     }
     window.addEventListener('keydown', handleKey)
     return () => window.removeEventListener('keydown', handleKey)
+  }, [])
+
+  // Close menu when clicking outside
+  useEffect(() => {
+    function handleClick() { setMenuOpen(null) }
+    window.addEventListener('click', handleClick)
+    return () => window.removeEventListener('click', handleClick)
   }, [])
 
   function clearToolStore(toolId) {
@@ -66,58 +72,19 @@ export default function Sidebar({ isOpen, onClose }) {
     map[toolId]?.()
   }
 
-  async function loadToolSession(toolId, sessionId) {
-    if (!user?.uid || !sessionId) return
-    try {
-      const msgs = await loadToolMessages(user.uid, sessionId)
-      if (toolId === 'codex') {
-        useCodexStore.getState().setMessages(msgs)
-        useCodexStore.getState().setSessionId(sessionId)
-      } else if (toolId === 'math') {
-        useMathStore.getState().setMessages(msgs)
-        useMathStore.getState().setSessionId(sessionId)
-      }
-    } catch (err) {
-      console.error('Failed to load tool session:', err)
+  async function handleSelectConversation(convo) {
+    const isTool = convo.type === 'tool'
+    if (isTool) {
+      setActiveTool(convo.toolId)
+      clearToolStore(convo.toolId)
+      navigate(`/tool/${convo.toolId}`, { state: { sessionId: convo.id } })
+    } else {
+      setActiveTool('chat')
+      setActiveConversationId(convo.id)
+      navigate('/chat')
     }
-  }
-
-  function handleSelectTool(tool) {
-    setActiveTool(tool.id)
-    clearToolStore(tool.id)
-    navigate(tool.path)
     onClose()
   }
-
-  async function handleSelectConversation(convo) {
-  const isTool = convo.type === 'tool'
-
-  if (isTool) {
-    setActiveTool(convo.toolId)
-    setActiveConversationId(convo.id)
-    clearToolStore(convo.toolId)
-
-    // Chat-based tools (Codex, Math) load messages
-    if (convo.toolId === 'codex') {
-      await codex.loadSession(convo.id)
-      navigate(`/tool/${convo.toolId}`)
-    } else if (convo.toolId === 'math') {
-      await math.loadSession(convo.id)
-      navigate(`/tool/${convo.toolId}`)
-    } else {
-      // Form-based tools — pass sessionId via router state
-      // The tool component reads this and loads from Firestore
-      navigate(`/tool/${convo.toolId}`, {
-        state: { sessionId: convo.id },
-      })
-    }
-  } else {
-    setActiveTool('chat')
-    setActiveConversationId(convo.id)
-    navigate('/chat')
-  }
-  onClose()
-}
 
   function handleNewChat() {
     setActiveTool('chat')
@@ -125,6 +92,45 @@ export default function Sidebar({ isOpen, onClose }) {
     clearMessages()
     navigate('/chat')
     onClose()
+  }
+
+  async function handleDelete(e, convId) {
+    e.stopPropagation()
+    if (!confirm('Delete this conversation?')) return
+    try {
+      await deleteConversation(user.uid, convId)
+      const updated = await loadConversations(user.uid)
+      setConversations(updated)
+      if (activeConversationId === convId) {
+        setActiveConversationId(null)
+        clearMessages()
+      }
+      setMenuOpen(null)
+    } catch (err) {
+      console.error('Delete failed:', err)
+    }
+  }
+
+  async function handleRename(e, convId) {
+    e.stopPropagation()
+    if (!renameValue.trim()) return
+    try {
+      await renameConversation(user.uid, convId, renameValue.trim())
+      const updated = await loadConversations(user.uid)
+      setConversations(updated)
+      setRenaming(null)
+      setRenameValue('')
+      setMenuOpen(null)
+    } catch (err) {
+      console.error('Rename failed:', err)
+    }
+  }
+
+  function handleStartRename(e, convo) {
+    e.stopPropagation()
+    setRenaming(convo.id)
+    setRenameValue(convo.title || '')
+    setMenuOpen(null)
   }
 
   return (
@@ -255,24 +261,102 @@ export default function Sidebar({ isOpen, onClose }) {
                     const isActive = isTool
                       ? activeConversationId === convo.id
                       : activeConversationId === convo.id && activeTool === 'chat'
+                    const isRenaming = renaming === convo.id
+                    const isMenuOpen = menuOpen === convo.id
 
                     return (
-                      <button
-                        key={convo.id}
-                        onClick={() => handleSelectConversation(convo)}
-                        className={`w-full text-left px-3 py-2 rounded-xl text-sm transition-colors flex items-center gap-2 min-w-0
-                          ${isActive
-                            ? 'bg-violet-600 text-white'
-                            : 'text-zinc-400 hover:bg-zinc-800 hover:text-white'
-                          }`}
-                      >
-                        {isTool && (
-                          <span className="text-sm flex-shrink-0">{convo.icon}</span>
+                      <div key={convo.id} className="relative group/item">
+                        {isRenaming ? (
+                          // Rename input
+                          <div className="flex items-center gap-1 px-2 py-1" onClick={(e) => e.stopPropagation()}>
+                            <input
+                              autoFocus
+                              type="text"
+                              value={renameValue}
+                              onChange={(e) => setRenameValue(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') handleRename(e, convo.id)
+                                if (e.key === 'Escape') { setRenaming(null); setRenameValue('') }
+                              }}
+                              className="flex-1 bg-zinc-800 text-white text-xs px-2 py-1.5 rounded-lg outline-none border border-violet-500 min-w-0"
+                            />
+                            <button
+                              onClick={(e) => handleRename(e, convo.id)}
+                              className="text-xs text-violet-400 hover:text-violet-300 px-1 flex-shrink-0"
+                            >
+                              ✓
+                            </button>
+                            <button
+                              onClick={() => { setRenaming(null); setRenameValue('') }}
+                              className="text-xs text-zinc-500 hover:text-zinc-300 px-1 flex-shrink-0"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => handleSelectConversation(convo)}
+                            className={`w-full text-left px-3 py-2 rounded-xl text-sm transition-colors flex items-center gap-2 min-w-0 pr-8
+                              ${isActive
+                                ? 'bg-violet-600 text-white'
+                                : 'text-zinc-400 hover:bg-zinc-800 hover:text-white'
+                              }`}
+                          >
+                            {isTool && <span className="text-sm flex-shrink-0">{convo.icon}</span>}
+                            <span className="truncate text-xs flex-1">
+                              {convo.title || (isTool ? convo.toolName : 'New chat')}
+                            </span>
+                          </button>
                         )}
-                        <span className="truncate text-xs">
-                          {convo.title || (isTool ? convo.toolName : 'New chat')}
-                        </span>
-                      </button>
+
+                        {/* Three-dot menu button */}
+                        {!isRenaming && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setMenuOpen(isMenuOpen ? null : convo.id)
+                            }}
+                            className="absolute right-1 top-1/2 -translate-y-1/2 w-6 h-6 flex items-center justify-center rounded-lg
+                              text-zinc-500 hover:text-zinc-300 hover:bg-zinc-700 transition-colors
+                              opacity-0 group-hover/item:opacity-100"
+                          >
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                              <circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/>
+                            </svg>
+                          </button>
+                        )}
+
+                        {/* Dropdown menu */}
+                        {isMenuOpen && (
+                          <div
+                            className="absolute right-0 top-8 z-50 bg-zinc-800 border border-zinc-700 rounded-xl shadow-lg overflow-hidden w-36"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <button
+                              onClick={(e) => handleStartRename(e, convo)}
+                              className="w-full flex items-center gap-2 px-3 py-2.5 text-xs text-zinc-300 hover:bg-zinc-700 transition-colors text-left"
+                            >
+                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                                <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/>
+                                <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                              </svg>
+                              Rename
+                            </button>
+                            <button
+                              onClick={(e) => handleDelete(e, convo.id)}
+                              className="w-full flex items-center gap-2 px-3 py-2.5 text-xs text-red-400 hover:bg-zinc-700 transition-colors text-left"
+                            >
+                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                                <polyline points="3 6 5 6 21 6"/>
+                                <path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/>
+                                <path d="M10 11v6M14 11v6"/>
+                                <path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/>
+                              </svg>
+                              Delete
+                            </button>
+                          </div>
+                        )}
+                      </div>
                     )
                   })
                 )}

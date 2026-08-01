@@ -15,25 +15,7 @@ export function useAuth() {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    const unsub = onAuthStateChanged(auth, async (firebaseUser) => {
-      if (firebaseUser) {
-        try {
-          await getIdToken(firebaseUser, true)
-          const profile = await getOrCreateProfile(firebaseUser)
-          setUser({ ...firebaseUser, profile })
-        } catch (err) {
-          console.error('Auth error:', err)
-          setUser({ ...firebaseUser, profile: {} })
-        }
-      } else {
-        setUser(null)
-      }
-      setLoading(false)
-    })
-    return unsub
-  }, [])
-
+  // Declare FIRST before useEffect
   async function getOrCreateProfile(firebaseUser) {
     const ref = doc(db, 'students', firebaseUser.uid)
 
@@ -76,6 +58,26 @@ export function useAuth() {
       }
     }
   }
+
+  // useEffect comes AFTER the function it calls
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (firebaseUser) {
+        try {
+          await getIdToken(firebaseUser, true)
+          const profile = await getOrCreateProfile(firebaseUser)
+          setUser({ ...firebaseUser, profile })
+        } catch (err) {
+          console.error('Auth error:', err)
+          setUser({ ...firebaseUser, profile: {} })
+        }
+      } else {
+        setUser(null)
+      }
+      setLoading(false)
+    })
+    return unsub
+  }, [])
 
   async function signup(email, password) {
     return createUserWithEmailAndPassword(auth, email, password)

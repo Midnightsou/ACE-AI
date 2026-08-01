@@ -4,28 +4,14 @@ export const useChatStore = create((set) => ({
   messages: [],
   loading: false,
   streamingContent: '',
+  restoredConvId: null, // tracks which conversation is loaded
 
   addMessage: (message) =>
-    set((state) => ({
-      messages: [...state.messages, message],
-    })),
-
+    set((state) => ({ messages: [...state.messages, message] })),
   setMessages: (messages) => set({ messages }),
   setLoading: (loading) => set({ loading }),
   setStreamingContent: (content) => set({ streamingContent: content }),
-  clearStreaming: () => set({ streamingContent: '' }),
-
-  finalizeStreamingMessage: () =>
-    set((state) => {
-      if (!state.streamingContent) return state
-      return {
-        messages: [
-          ...state.messages,
-          { role: 'assistant', content: state.streamingContent },
-        ],
-        streamingContent: '',
-      }
-    }),
+  setRestoredConvId: (id) => set({ restoredConvId: id }),
 
   editMessage: (index, newContent) =>
     set((state) => {
@@ -35,9 +21,7 @@ export const useChatStore = create((set) => ({
     }),
 
   truncateFrom: (index) =>
-    set((state) => ({
-      messages: state.messages.slice(0, index),
-    })),
+    set((state) => ({ messages: state.messages.slice(0, index) })),
 
-  clearMessages: () => set({ messages: [], streamingContent: '' }),
+  clearMessages: () => set({ messages: [], streamingContent: '', restoredConvId: null }),
 }))

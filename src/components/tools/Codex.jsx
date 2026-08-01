@@ -1,12 +1,9 @@
 import { useState, useEffect, useRef } from 'react'
+import { useLocation } from 'react-router-dom'
 import { useCodex } from '../../hooks/useCodex'
 import { useCodexStore } from '../../store/codexStore'
-import { useToolStore } from '../../store/toolStore'
 import CodexMessage from './CodexMessage'
 import ToolMessageBubble from './ToolMessageBubble'
-import { getToolById } from '../../tools/registry'
-
-const tool = getToolById('codex')
 
 const LANGUAGE_OPTIONS = [
   { value: 'auto', label: 'Auto detect' },
@@ -44,10 +41,12 @@ export default function Codex() {
     setLanguage,
     send,
     startNewSession,
+    loadSession,
   } = useCodex()
 
+  const sessionId = useCodexStore((s) => s.sessionId)
   const truncateFrom = useCodexStore((s) => s.truncateFrom)
-  const setActiveTool = useToolStore((s) => s.setActiveTool)
+  const location = useLocation()
   const [input, setInput] = useState('')
   const [showLangPicker, setShowLangPicker] = useState(false)
   const bottomRef = useRef(null)
@@ -56,6 +55,14 @@ export default function Codex() {
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, streamingContent])
+
+  // Restore from location state (sidebar click) OR keep current session
+  useEffect(() => {
+    const sid = location.state?.sessionId
+    if (sid && sid !== sessionId) {
+      loadSession(sid)
+    }
+  }, [location.state?.sessionId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   function handleSend() {
     if (!input.trim() || loading) return

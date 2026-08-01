@@ -1,5 +1,4 @@
 import { useRef, useState, useEffect } from 'react'
-import { forwardRef } from 'react'
 import { useLocation } from 'react-router-dom'
 import { useToolSession } from '../../hooks/useToolSession'
 import { useCoverLetterStore } from '../../store/coverLetterStore'
@@ -7,8 +6,6 @@ import { useTool } from '../../hooks/useTool'
 import { useCoverLetterChat } from '../../hooks/useCoverLetterChat'
 import ToolLayout from './ToolLayout'
 import CVStylePicker from './CVStylePicker'
-import { saveToolSession } from '../../services/memory'
-import { useUserStore } from '../../store/userStore'
 import { GenerateButton } from './ToolInput'
 import { buildCoverLetterPrompt } from '../../prompts/tools/coverLetterPrompt'
 import { getToolById } from '../../tools/registry'
@@ -184,7 +181,6 @@ export default function CoverLetter() {
     liveOutput, setLiveOutput,
     reset,
   } = useCoverLetterStore()
-  const user = useUserStore((s) => s.user)
   const { streaming, loading, error, generate } = useTool('cover-letter')
   const [style, setStyle] = useState(defaultStyle)
   const [showStylePicker, setShowStylePicker] = useState(false)
@@ -204,13 +200,13 @@ export default function CoverLetter() {
         setLiveOutput(saved.output)
       }
     })
-  }, [location.state?.sessionId])
+  }, [location.state?.sessionId, loadSession, setLiveOutput, setOutput, updateForm])
 
   useEffect(() => {
     if (!output) return
     const title = `Cover Letter — ${form.company || form.role || 'Untitled'}`
     saveSession({ form, output }, title)
-  }, [output])
+  }, [form, output, saveSession])
 
   const CHAT_SUGGESTIONS = [
     'Make the opening more attention-grabbing',
@@ -231,17 +227,6 @@ export default function CoverLetter() {
       setOutput(result)
       setLiveOutput(result)
     }
-  }
-  const [result, setResult] = useState("");
-
-  if (user?.uid && result) {
-    saveToolSession(
-      user.uid,
-      'cover-letter',
-      'Cover Letter',
-      `Cover Letter — ${form.company || form.role}`,
-      '✉️'
-    ).catch(() => {});
   }
 
   async function handleDownloadPDF() {

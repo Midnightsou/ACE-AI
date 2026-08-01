@@ -1,5 +1,25 @@
 import 'katex/dist/katex.min.css'
 import { InlineMath, BlockMath } from 'react-katex'
+import { Component } from 'react'
+
+// Error boundary instead of try/catch around JSX
+class MathErrorBoundary extends Component {
+  constructor(props) {
+    super(props)
+    this.state = { hasError: false }
+  }
+  static getDerivedStateFromError() { return { hasError: true } }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <code className="text-sm font-mono text-violet-700 bg-violet-50 px-1.5 py-0.5 rounded">
+          {this.props.fallback}
+        </code>
+      )
+    }
+    return this.props.children
+  }
+}
 
 // The most important function — fix malformed LaTeX before KaTeX sees it
 function fixLatex(expr) {
@@ -129,32 +149,21 @@ function parseContent(text) {
 }
 
 function RenderInline({ math }) {
-  try {
-    return <InlineMath math={math} />
-  } catch (e) {
-    // KaTeX failed — show as styled code rather than crashing
-    return (
-      <code className="text-sm font-mono text-violet-700 bg-violet-50 px-1.5 py-0.5 rounded">
-        {math}
-      </code>
-    )
-  }
+  return (
+    <MathErrorBoundary fallback={math}>
+      <InlineMath math={math} />
+    </MathErrorBoundary>
+  )
 }
 
 function RenderBlock({ math }) {
-  try {
-    return (
+  return (
+    <MathErrorBoundary fallback={math}>
       <span className="block my-4 overflow-x-auto py-2 text-center">
         <BlockMath math={math} />
       </span>
-    )
-  } catch (e) {
-    return (
-      <code className="block text-sm font-mono text-violet-700 bg-violet-50 p-4 rounded-xl my-3 text-center overflow-x-auto">
-        {math}
-      </code>
-    )
-  }
+    </MathErrorBoundary>
+  )
 }
 
 export default function MathRenderer({ text }) {

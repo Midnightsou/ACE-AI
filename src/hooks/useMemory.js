@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import {
   loadMessages,
   saveMessage,
@@ -11,17 +11,29 @@ const FREE_LIMIT = 10
 
 export function useMemory(uid, subject) {
   const [history, setHistory] = useState([])
-  const [loadingHistory, setLoadingHistory] = useState(true)
+  const [loadingHistory, setLoadingHistory] = useState(false)
+
+  const fetchHistory = useCallback(
+    async (signal) => {
+      if (!uid || !subject) return
+      setLoadingHistory(true)
+      try {
+        const msgs = await loadMessages(uid, subject)
+        if (!signal?.aborted) setHistory(msgs)
+      } catch (err) {
+        if (!signal?.aborted) console.error('Failed to load history:', err)
+      } finally {
+        if (!signal?.aborted) setLoadingHistory(false)
+      }
+    },
+    [uid, subject]
+  )
 
   useEffect(() => {
-    if (!uid || !subject) return
-    setLoadingHistory(true)
-
-    loadMessages(uid, subject)
-      .then((msgs) => setHistory(msgs))
-      .catch((err) => console.error('Failed to load history:', err))
-      .finally(() => setLoadingHistory(false))
-  }, [uid, subject])
+    const controller = new AbortController()
+    fetchHistory(controller.signal)
+    return () => controller.abort()
+  }, [fetchHistory])
 
   async function persistMessage(message) {
     if (!uid || !subject) return
@@ -47,6 +59,7 @@ export function useMemory(uid, subject) {
   return {
     history,
     loadingHistory,
+    refetch: fetchHistory,
     persistMessage,
     checkLimit,
     trackMessage,

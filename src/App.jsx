@@ -49,6 +49,7 @@ export default function App() {
     clearCodex()
     clearMath()
     clearDojo()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.uid]) // key on uid specifically — fires when account switches
 
   useEffect(() => {

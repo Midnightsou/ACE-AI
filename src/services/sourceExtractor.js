@@ -28,7 +28,7 @@ function cleanExtractedText(text) {
     .replace(/\\m\s*u/g, '\\mu')
     // Fix ¶si → ψ (psi)
     .replace(/¶si/g, 'ψ')
-    .replace(/\¶/g, 'ψ')
+    .replace(/¶/g, 'ψ')
 }
 
 export async function extractFromFile(file) {
@@ -91,14 +91,15 @@ export function generateSourceId() {
 
 export function getSourceIcon(type) {
   const icons = {
-    pdf: '📄',
-    image: '🖼',
-    docx: '📝',
-    text: '📃',
-    url: '🔗',
-    paste: '📋',
+    pdf: '',
+    image: '',
+    docx: '',
+    text: '',
+    url: '',
+    paste: '',
+    web: '',
   }
-  return icons[type] || '📄'
+  return icons[type] || ''
 }
 
 export function truncateText(text, maxLength = 50000) {

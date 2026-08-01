@@ -1,104 +1,104 @@
 import { forwardRef } from 'react'
 
+function SectionTitle({ children, palette, font }) {
+  return (
+    <div style={{ marginBottom: '12px' }}>
+      <h3 style={{
+        color: palette.accent,
+        fontSize: '11px',
+        fontWeight: '700',
+        letterSpacing: '0.12em',
+        textTransform: 'uppercase',
+        fontFamily: font.family,
+        margin: '0 0 5px 0',
+      }}>
+        {children}
+      </h3>
+      <div style={{
+        height: '2px',
+        backgroundColor: palette.accent,
+        opacity: 0.35,
+        borderRadius: '2px',
+      }} />
+    </div>
+  )
+}
+
+function SkillPills({ text, palette, font }) {
+  if (!text) return null
+  const skills = text
+    .split('\n')
+    .flatMap((line) =>
+      line.replace(/^[-•*]\s*/, '').split(',').map((s) => s.trim())
+    )
+    .filter(Boolean)
+
+  return (
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+      {skills.map((skill, i) => (
+        <span key={i} style={{
+          backgroundColor: palette.light,
+          color: palette.accent,
+          border: `1px solid ${palette.accent}30`,
+          padding: '3px 10px',
+          borderRadius: '20px',
+          fontSize: '10.5px',
+          fontFamily: font.family,
+          whiteSpace: 'nowrap',
+          fontWeight: '500',
+        }}>
+          {skill}
+        </span>
+      ))}
+    </div>
+  )
+}
+
+function TextBlock({ text, size = '11.5px', palette, font }) {
+  if (!text) return null
+  return (
+    <div>
+      {text.split('\n').map((line, i) => {
+        if (!line.trim()) return <div key={i} style={{ height: '6px' }} />
+        const isBullet = line.startsWith('-') || line.startsWith('•')
+        const cleaned = line.replace(/^[-•]\s*/, '')
+        const isJobTitle = !isBullet && line.length < 60 &&
+          (line.includes(' at ') || line.includes('(20') || /^[A-Z]/.test(line))
+
+        return (
+          <div key={i} style={{
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: isBullet ? '6px' : '0',
+            marginBottom: '3px',
+          }}>
+            {isBullet && (
+              <span style={{
+                color: palette.accent,
+                fontSize: '10px',
+                marginTop: '3px',
+                flexShrink: 0,
+              }}>●</span>
+            )}
+            <p style={{
+              margin: 0,
+              fontSize: isJobTitle ? '12px' : size,
+              fontWeight: isJobTitle ? '600' : '400',
+              color: isJobTitle ? '#111827' : '#374151',
+              lineHeight: '1.65',
+              fontFamily: font.family,
+            }}>
+              {cleaned}
+            </p>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 export default forwardRef(function CVRenderer({ sections, header, style }, ref) {
   const { font, palette } = style
-
-  function SectionTitle({ children }) {
-    return (
-      <div style={{ marginBottom: '12px' }}>
-        <h3 style={{
-          color: palette.accent,
-          fontSize: '11px',
-          fontWeight: '700',
-          letterSpacing: '0.12em',
-          textTransform: 'uppercase',
-          fontFamily: font.family,
-          margin: '0 0 5px 0',
-        }}>
-          {children}
-        </h3>
-        <div style={{
-          height: '2px',
-          backgroundColor: palette.accent,
-          opacity: 0.35,
-          borderRadius: '2px',
-        }} />
-      </div>
-    )
-  }
-
-  function SkillPills({ text }) {
-    if (!text) return null
-    const skills = text
-      .split('\n')
-      .flatMap((line) =>
-        line.replace(/^[-•*]\s*/, '').split(',').map((s) => s.trim())
-      )
-      .filter(Boolean)
-
-    return (
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-        {skills.map((skill, i) => (
-          <span key={i} style={{
-            backgroundColor: palette.light,
-            color: palette.accent,
-            border: `1px solid ${palette.accent}30`,
-            padding: '3px 10px',
-            borderRadius: '20px',
-            fontSize: '10.5px',
-            fontFamily: font.family,
-            whiteSpace: 'nowrap',
-            fontWeight: '500',
-          }}>
-            {skill}
-          </span>
-        ))}
-      </div>
-    )
-  }
-
-  function TextBlock({ text, size = '11.5px' }) {
-    if (!text) return null
-    return (
-      <div>
-        {text.split('\n').map((line, i) => {
-          if (!line.trim()) return <div key={i} style={{ height: '6px' }} />
-          const isBullet = line.startsWith('-') || line.startsWith('•')
-          const cleaned = line.replace(/^[-•]\s*/, '')
-          const isJobTitle = !isBullet && line.length < 60 &&
-            (line.includes(' at ') || line.includes('(20') || /^[A-Z]/.test(line))
-
-          return (
-            <div key={i} style={{
-              display: 'flex',
-              alignItems: 'flex-start',
-              gap: isBullet ? '6px' : '0',
-              marginBottom: '3px',
-            }}>
-              {isBullet && (
-                <span style={{
-                  color: palette.accent,
-                  fontSize: '10px',
-                  marginTop: '3px',
-                  flexShrink: 0,
-                }}>●</span>
-              )}
-              <p style={{
-                margin: 0,
-                fontSize: isJobTitle ? '12px' : size,
-                fontWeight: isJobTitle ? '600' : '400',
-                color: isJobTitle ? '#111827' : '#374151',
-                lineHeight: '1.65',
-                fontFamily: font.family,
-              }}>
-                {cleaned}
-              </p>
-            </div>
-          )
-        })}
-      </div>
-    )
-  }
 
   return (
     <div
@@ -205,29 +205,29 @@ export default forwardRef(function CVRenderer({ sections, header, style }, ref) 
 
           {sections?.experience && (
             <div style={{ marginBottom: '24px' }}>
-              <SectionTitle>Work Experience</SectionTitle>
-              <TextBlock text={sections.experience} />
+              <SectionTitle palette={palette} font={font}>Work Experience</SectionTitle>
+              <TextBlock text={sections.experience} palette={palette} font={font} />
             </div>
           )}
 
           {sections?.projects && (
             <div style={{ marginBottom: '24px' }}>
-              <SectionTitle>Projects</SectionTitle>
-              <TextBlock text={sections.projects} />
+              <SectionTitle palette={palette} font={font}>Projects</SectionTitle>
+              <TextBlock text={sections.projects} palette={palette} font={font} />
             </div>
           )}
 
           {sections?.achievements && (
             <div style={{ marginBottom: '24px' }}>
-              <SectionTitle>Achievements</SectionTitle>
-              <TextBlock text={sections.achievements} />
+              <SectionTitle palette={palette} font={font}>Achievements</SectionTitle>
+              <TextBlock text={sections.achievements} palette={palette} font={font} />
             </div>
           )}
 
           {sections?.additional && (
             <div style={{ marginBottom: '24px' }}>
-              <SectionTitle>Additional</SectionTitle>
-              <TextBlock text={sections.additional} />
+              <SectionTitle palette={palette} font={font}>Additional</SectionTitle>
+              <TextBlock text={sections.additional} palette={palette} font={font} />
             </div>
           )}
         </div>
@@ -237,35 +237,35 @@ export default forwardRef(function CVRenderer({ sections, header, style }, ref) 
 
           {sections?.skills && (
             <div style={{ marginBottom: '24px' }}>
-              <SectionTitle>Skills</SectionTitle>
-              <SkillPills text={sections.skills} />
+              <SectionTitle palette={palette} font={font}>Skills</SectionTitle>
+              <SkillPills text={sections.skills} palette={palette} font={font} />
             </div>
           )}
 
           {sections?.education && (
             <div style={{ marginBottom: '24px' }}>
-              <SectionTitle>Education</SectionTitle>
-              <TextBlock text={sections.education} />
+              <SectionTitle palette={palette} font={font}>Education</SectionTitle>
+              <TextBlock text={sections.education} palette={palette} font={font} />
             </div>
           )}
 
           {sections?.certifications && (
             <div style={{ marginBottom: '24px' }}>
-              <SectionTitle>Certifications</SectionTitle>
-              <TextBlock text={sections.certifications} />
+              <SectionTitle palette={palette} font={font}>Certifications</SectionTitle>
+              <TextBlock text={sections.certifications} palette={palette} font={font} />
             </div>
           )}
           {sections?.Hobbies && (
             <div style={{ marginBottom: '24px' }}>
-              <SectionTitle>Hobbies</SectionTitle>
-              <TextBlock text={sections.Hobbies} />
+              <SectionTitle palette={palette} font={font}>Hobbies</SectionTitle>
+              <TextBlock text={sections.Hobbies} palette={palette} font={font} />
             </div>
           )}
 
           {sections?.languages && (
             <div style={{ marginBottom: '24px' }}>
-              <SectionTitle>Languages</SectionTitle>
-              <TextBlock text={sections.languages} />
+              <SectionTitle palette={palette} font={font}>Languages</SectionTitle>
+              <TextBlock text={sections.languages} palette={palette} font={font} />
             </div>
           )}
         </div>

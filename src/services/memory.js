@@ -2,13 +2,14 @@ import {
   collection,
   doc,
   addDoc,
+  deleteDoc,
   getDoc,
   getDocs,
-  setDoc,
   updateDoc,
   query,
   orderBy,
   limit,
+  where,
   serverTimestamp,
 } from 'firebase/firestore'
 import { db } from './firebase'
@@ -73,6 +74,25 @@ export async function loadMessages(uid, convId) {
 export async function updateConversationTitle(uid, convId, title) {
   await updateDoc(doc(db, 'students', uid, 'conversations', convId), {
     title,
+    updatedAt: serverTimestamp(),
+  })
+  invalidateConversationCache(uid)
+}
+
+export async function deleteConversation(uid, convId) {
+  // Delete all messages first
+  const messagesRef = collection(db, 'students', uid, 'conversations', convId, 'messages')
+  const snap = await getDocs(messagesRef)
+  await Promise.all(snap.docs.map((d) => deleteDoc(d.ref)))
+
+  // Delete the conversation document
+  await deleteDoc(doc(db, 'students', uid, 'conversations', convId))
+  invalidateConversationCache(uid)
+}
+
+export async function renameConversation(uid, convId, newTitle) {
+  await updateDoc(doc(db, 'students', uid, 'conversations', convId), {
+    title: newTitle,
     updatedAt: serverTimestamp(),
   })
   invalidateConversationCache(uid)

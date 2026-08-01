@@ -8,9 +8,8 @@ import CVRenderer from './CVRenderer'
 import CVStylePicker from './CVStylePicker'
 import { ToolField, ToolTextarea, GenerateButton } from './ToolInput'
 import { buildCVAnalyserPrompt, buildAnalysisPrompt } from '../../prompts/tools/cvAnalyserPrompt'
-import { parseCV, extractHeaderInfo } from '../../utils/cvParser'
+import { parseCV } from '../../utils/cvParser'
 import { getToolById } from '../../tools/registry'
-import { defaultStyle } from '../../tools/cvStyles'
 import { useCVChat } from '../../hooks/useCVChat'
 import CVChat from './CVChat'
 const tool = getToolById('cv-analyser')
@@ -26,7 +25,7 @@ export default function CVAnalyser() {
 
   // ── Session hooks ────────────────────────────────
   const location = useLocation()
-  const { saveSession, loadSession, restoring } = useToolSession('cv-analyser', 'CV Analyser', '🔍')
+  const { saveSession, loadSession } = useToolSession('cv-analyser', 'CV Analyser', '🔍')
 
   const {
     step, setStep,
@@ -64,14 +63,14 @@ export default function CVAnalyser() {
       if (saved.mode) setMode(saved.mode)
       if (saved.step !== undefined) setStep(saved.step)
     })
-  }, [location.state?.sessionId])
+  }, [location.state?.sessionId, loadSession, setAnalysisOutput, setMode, setOutput, setStep, updateForm])
 
   // ── Auto-save ─────────────────────────────────────
   useEffect(() => {
     if (!output && !analysisOutput) return
     const title = `CV Analysis — ${form.targetRole || 'Untitled'}`
     saveSession({ form, output, analysisOutput, mode, step }, title)
-  }, [output, analysisOutput])
+  }, [output, analysisOutput, form, mode, saveSession, step])
 
   function canProceed() {
     if (step === 0) return form.cvText.trim().length > 20

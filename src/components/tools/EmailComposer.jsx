@@ -1,9 +1,7 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { useLocation } from 'react-router-dom'
 import { useEmailStore } from '../../store/emailStore'
-import { useUserStore } from '../../store/userStore'
 import { useToolSession } from '../../hooks/useToolSession'
-import { useEmailChat } from '../../hooks/useEmailChat'
 import ToolLayout from './ToolLayout'
 import EmailPreview from './EmailPreview'
 import {
@@ -24,20 +22,9 @@ const CHAT_SUGGESTIONS = [
   'Add more urgency',
 ]
 
-function parseEmailSimple(content) {
-  if (!content) return { subject: '', body: '' }
-  const lines = content.split('\n')
-  const subjectLine = lines.find((l) => /^subject:/i.test(l.trim()))
-  const subject = subjectLine ? subjectLine.replace(/^subject:\s*/i, '').trim() : ''
-  const bodyStart = subjectLine ? lines.indexOf(subjectLine) + 1 : 0
-  const body = lines.slice(bodyStart).join('\n').trim()
-  return { subject, body }
-}
-
 export default function EmailComposer() {
   const location = useLocation()
   const { form, output, liveOutput, updateForm, setOutput, setLiveOutput, reset } = useEmailStore()
-  const user = useUserStore((s) => s.user)
   const { saveSession, loadSession, restoring, resetSession } = useToolSession('email-composer', 'Email Composer', '📧')
 
   const [streaming, setStreaming] = useState(false)
@@ -69,7 +56,7 @@ export default function EmailComposer() {
         setChatMessages(saved.chatMessages)
       }
     })
-  }, [location.state?.sessionId])
+  }, [location.state?.sessionId, loadSession, setLiveOutput, setOutput, updateForm])
 
   async function handleGenerate() {
     setLoading(true)

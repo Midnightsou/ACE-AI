@@ -6,7 +6,7 @@ export default function ToolHistory({ toolId, onSelect, renderItem }) {
 
   useEffect(() => {
     loadHistory()
-  }, [toolId])
+  }, [loadHistory, toolId])
 
   if (!history.length) return null
 

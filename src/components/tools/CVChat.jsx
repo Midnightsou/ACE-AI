@@ -10,7 +10,7 @@ const SUGGESTIONS = [
 ]
 
 export default function CVChat({ currentCV, onUpdate }) {
-  const { messages, loading, input, setInput, send, reset } = onUpdate
+  const { messages, loading, input, setInput, send } = onUpdate
   const bottomRef = useRef(null)
 
   useEffect(() => {

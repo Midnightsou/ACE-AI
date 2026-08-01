@@ -33,7 +33,6 @@ export default function MathGraph({ expression }) {
 
       for (let x = -10; x <= 10; x += 0.1) {
         try {
-          // eslint-disable-next-line no-new-func
           const y = new Function('x', `return ${cleanExpr}`)(x)
           xVals.push(parseFloat(x.toFixed(4)))
           yVals.push(isFinite(y) ? parseFloat(y.toFixed(4)) : null)

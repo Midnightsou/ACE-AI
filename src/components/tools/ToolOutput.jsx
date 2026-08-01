@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { downloadTextAsPDF } from '../../services/pdfExport'
 
 export default function ToolOutput({ content, toolId, title }) {

@@ -7,7 +7,7 @@ import { useUserStore } from '../store/userStore'
 
 import { buildDojoChatPrompt } from '../prompts/tools/dojoPrompt'
 
-import { loadToolMessages } from '../services/memory'
+import { loadToolMessages, saveDojoSession } from '../services/memory'
 
 import {
   streamCompletion,
@@ -228,6 +228,16 @@ export function useDojo() {
       )
 
       setGeneratedContent(tab, fullContent)
+
+      // Save to Firestore — generated content only, not source documents
+      if (user?.uid) {
+        const store = useDojoStore.getState()
+        await saveDojoSession(user.uid, {
+          generatedContent: store.generatedContent,
+          sourceMetadata: store.getSourceMetadata(),
+          // NO source.content — too large
+        })
+      }
     } catch (err) {
       setGeneratedContent(
         tab,
@@ -243,40 +253,6 @@ export function useDojo() {
     }
   }
 
-  // After generating content (summary, quiz, etc.), save to session:
-async function generateContent(tab, promptBuilder) {
-  if (readySources.length === 0) return
-  setGeneratingTab(tab)
-  setGeneratedContent(tab, '')
-
-  try {
-    const { system, user: userPrompt } = promptBuilder(readySources)
-    const fullContent = await streamCompletion({
-      model: MODELS.chat,
-      messages: [{ role: 'system', content: system }, { role: 'user', content: userPrompt }],
-      temperature: 0.5,
-      maxTokens: 4096,
-      onChunk: (chunk) => setGeneratedContent(tab, chunk),
-    })
-
-    setGeneratedContent(tab, fullContent)
-
-    // Save to Firestore — generated content only, not source documents
-    if (user?.uid) {
-      const store = useDojoStore.getState()
-      await saveDojoSession(user.uid, {
-        generatedContent: store.generatedContent,
-        sourceMetadata: store.getSourceMetadata(),
-        // NO source.content — too large
-      })
-    }
-
-  } catch (err) {
-    setGeneratedContent(tab, 'Failed to generate. Try again.')
-  } finally {
-    setGeneratingTab(null)
-  }
-}
   return {
     messages,
     streamingContent,

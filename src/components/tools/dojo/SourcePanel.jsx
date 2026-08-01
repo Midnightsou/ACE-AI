@@ -6,6 +6,7 @@ import {
   generateSourceId,
   truncateText,
 } from '../../../services/sourceExtractor'
+import { searchWeb } from '../../../services/webSearch'
 import SourceCard from './SourceCard'
 
 export default function SourcePanel() {
@@ -16,6 +17,9 @@ export default function SourcePanel() {
   const [showPaste, setShowPaste] = useState(false)
   const [showURL, setShowURL] = useState(false)
   const [addingURL, setAddingURL] = useState(false)
+  const [webQuery, setWebQuery] = useState('')
+  const [showWebSearch, setShowWebSearch] = useState(false)
+  const [searchingWeb, setSearchingWeb] = useState(false)
   const fileInputRef = useRef(null)
 
   async function handleFileUpload(e) {
@@ -124,6 +128,56 @@ export default function SourcePanel() {
     })
     setPasteText('')
     setShowPaste(false)
+  }
+
+  async function handleWebSearch() {
+    if (!webQuery.trim()) return
+    setSearchingWeb(true)
+
+    const id = generateSourceId()
+    addSource({
+      id,
+      name: `Web: "${webQuery}"`,
+      type: 'web',
+      loading: true,
+      preview: '',
+      content: '',
+      wordCount: 0,
+      error: null,
+    })
+
+    setWebQuery('')
+    setShowWebSearch(false)
+
+    try {
+      const results = await searchWeb(webQuery, 8)
+      if (!results?.length) throw new Error('No results found')
+
+      // Combine search results into a readable source
+      const content = results.map((r, i) =>
+        `[Result ${i + 1}] ${r.title}\nSource: ${r.url}\n${r.description}`
+      ).join('\n\n')
+
+      const preview = results[0]?.description?.slice(0, 200) || ''
+      const wordCount = content.split(/\s+/).length
+
+      useDojoStore.getState().updateSource(id, {
+        loading: false,
+        content,
+        fullContent: content,
+        preview,
+        wordCount,
+        searchQuery: webQuery,
+        resultCount: results.length,
+      })
+    } catch (err) {
+      useDojoStore.getState().updateSource(id, {
+        loading: false,
+        error: err.message || 'Web search failed',
+      })
+    } finally {
+      setSearchingWeb(false)
+    }
   }
 
   const totalWords = sources.reduce((sum, s) => sum + (s.wordCount || 0), 0)
@@ -239,6 +293,42 @@ export default function SourcePanel() {
             </div>
           </div>
         )}
+
+        {/* Web search panel */}
+        {showWebSearch && (
+          <div className="flex flex-col gap-2 p-3 bg-zinc-50 rounded-xl border border-zinc-200">
+            <p className="text-xs font-medium text-zinc-600">Search the web</p>
+            <input
+              type="text"
+              value={webQuery}
+              onChange={(e) => setWebQuery(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleWebSearch()}
+              placeholder="e.g. latest AI research papers 2025"
+              className="w-full px-3 py-2 border border-zinc-200 rounded-lg text-sm outline-none focus:border-violet-500 transition-colors bg-white"
+              autoFocus
+            />
+            <div className="flex gap-2">
+              <button
+                onClick={handleWebSearch}
+                disabled={!webQuery.trim() || searchingWeb}
+                className="flex-1 py-2 bg-violet-600 hover:bg-violet-700 disabled:opacity-40 text-white text-xs font-medium rounded-lg transition-colors flex items-center justify-center gap-1.5"
+              >
+                {searchingWeb ? (
+                  <><div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" /> Searching...</>
+                ) : (
+                  <><span>🔍</span> Search</>
+                )}
+              </button>
+              <button
+                onClick={() => { setShowWebSearch(false); setWebQuery('') }}
+                className="px-3 py-2 border border-zinc-200 text-zinc-500 text-xs rounded-lg hover:bg-white transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+            <p className="text-xs text-zinc-400">Results from Google via Serper.dev</p>
+          </div>
+        )}
       </div>
 
       {/* Add source buttons */}
@@ -265,20 +355,25 @@ export default function SourcePanel() {
 
         <div className="flex gap-2">
           <button
-            onClick={() => { setShowURL((v) => !v); setShowPaste(false) }}
-            className={`flex-1 flex items-center justify-center gap-2 px-3 py-2.5 border rounded-xl text-sm transition-colors
+            onClick={() => { setShowURL((v) => !v); setShowPaste(false); setShowWebSearch(false) }}
+            className={`flex-1 flex items-center justify-center gap-1.5 px-2 py-2.5 border rounded-xl text-xs transition-colors
               ${showURL ? 'border-violet-400 bg-violet-50 text-violet-700' : 'border-zinc-200 text-zinc-600 hover:border-violet-300'}`}
           >
-            <span>🔗</span>
-            Add URL
+            <span>🔗</span> URL
           </button>
           <button
-            onClick={() => { setShowPaste((v) => !v); setShowURL(false) }}
-            className={`flex-1 flex items-center justify-center gap-2 px-3 py-2.5 border rounded-xl text-sm transition-colors
+            onClick={() => { setShowWebSearch((v) => !v); setShowURL(false); setShowPaste(false) }}
+            className={`flex-1 flex items-center justify-center gap-1.5 px-2 py-2.5 border rounded-xl text-xs transition-colors
+              ${showWebSearch ? 'border-violet-400 bg-violet-50 text-violet-700' : 'border-zinc-200 text-zinc-600 hover:border-violet-300'}`}
+          >
+            <span>🔍</span> Search
+          </button>
+          <button
+            onClick={() => { setShowPaste((v) => !v); setShowURL(false); setShowWebSearch(false) }}
+            className={`flex-1 flex items-center justify-center gap-1.5 px-2 py-2.5 border rounded-xl text-xs transition-colors
               ${showPaste ? 'border-violet-400 bg-violet-50 text-violet-700' : 'border-zinc-200 text-zinc-600 hover:border-violet-300'}`}
           >
-            <span>📋</span>
-            Paste text
+            <span>📋</span> Paste
           </button>
         </div>
       </div>

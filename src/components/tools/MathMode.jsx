@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { useLocation } from 'react-router-dom'
 import { useMathMode } from '../../hooks/useMathMode'
 import { useMathStore } from '../../store/mathStore'
 import { useAutoResize } from '../../hooks/useAutoResize'
@@ -19,8 +20,10 @@ const QUICK_PROBLEMS = [
   ]
 
 export default function MathMode() {
-  const { messages, streamingContent, send, clearMessages } = useMathMode()
+  const { messages, streamingContent, send, clearMessages, loadSession } = useMathMode()
+  const sessionId = useMathStore((s) => s.sessionId)
   const truncateFrom = useMathStore((s) => s.truncateFrom)
+  const location = useLocation()
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const bottomRef = useRef(null)
@@ -30,6 +33,14 @@ export default function MathMode() {
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, streamingContent])
+
+  // Restore from location state (sidebar click) OR keep current session
+  useEffect(() => {
+    const sid = location.state?.sessionId
+    if (sid && sid !== sessionId) {
+      loadSession(sid)
+    }
+  }, [location.state?.sessionId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   async function handleSend() {
     if (!input.trim() || loading) return

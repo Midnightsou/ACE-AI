@@ -53,7 +53,7 @@ export function useChat() {
     messages, streamingContent, loading,
     addMessage, setStreamingContent, setLoading,
     clearMessages, truncateFrom,
-    restoredConvId, setRestoredConvId,
+    setRestoredConvId,
   } = useChatStore()
 
   const {

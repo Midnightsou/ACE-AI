@@ -10,25 +10,54 @@ export default defineConfig({
         manualChunks: (id) => {
           if (!id.includes('node_modules')) return
 
-          // Keep these out — they're dynamically imported
+          // These load dynamically — exclude from chunks
           if (id.includes('plotly') || id.includes('react-plotly')) return undefined
           if (id.includes('pdfjs-dist')) return undefined
-          if (id.includes('tesseract')) return undefined
           if (id.includes('html2pdf')) return undefined
+          if (id.includes('mammoth')) return undefined
+          if (id.includes('lz-string')) return undefined
+          if (id.includes('tesseract')) return undefined
 
-          // Bundle these together
-          if (id.includes('react-dom') || id.includes('react-router')) return 'react-vendor'
-          if (id.includes('firebase')) return 'firebase-vendor'
-          if (id.includes('zustand')) return 'zustand-vendor'
-          if (id.includes('syntax-highlighter') || id.includes('highlight')) return 'code-vendor'
+          // Critical path — load first
+          if (id.includes('react/') || id.includes('react-dom/')) return 'react-core'
+          if (id.includes('react-router')) return 'react-router'
+
+          // Firebase — split into smaller chunks
+          if (id.includes('firebase/auth')) return 'firebase-auth'
+          if (id.includes('firebase/firestore')) return 'firebase-firestore'
+          if (id.includes('firebase/app')) return 'firebase-app'
+
+          // State
+          if (id.includes('zustand')) return 'zustand'
+
+          // Math rendering — only loads when Math Mode opens
+          if (id.includes('katex') || id.includes('react-katex')) return 'katex'
+
+          // Code highlighting — only loads when Codex opens
+          if (id.includes('syntax-highlighter') || id.includes('highlight.js')) return 'syntax'
         },
       },
     },
     minify: 'esbuild',
-    chunkSizeWarningLimit: 1500,
+    target: 'esnext',
+    chunkSizeWarningLimit: 1000,
+    // Reduce initial HTML size
+    cssCodeSplit: true,
+    assetsInlineLimit: 4096,
   },
   optimizeDeps: {
-    include: ['react', 'react-dom', 'firebase/app', 'firebase/auth', 'firebase/firestore'],
-    exclude: ['plotly.js-dist-min', 'react-plotly.js', 'pdfjs-dist', 'tesseract.js', 'html2pdf.js'],
+    include: [
+      'react',
+      'react-dom',
+      'react-router-dom',
+      'zustand',
+    ],
+    exclude: [
+      'pdfjs-dist',
+      'html2pdf.js',
+      'mammoth',
+      'plotly.js-dist-min',
+      'tesseract.js',
+    ],
   },
 })

@@ -1,5 +1,7 @@
-import { ref, uploadString, getDownloadURL, deleteObject } from 'firebase/storage'
-import { storage } from './firebase'
+import { ref, uploadString, getDownloadURL, deleteObject, getStorage } from 'firebase/storage'
+
+// Lazily initialized storage instance — only loads firebase/storage when needed
+const storage = getStorage()
 
 // Save large content to Firebase Storage instead of Firestore
 export async function saveLargeContent(uid, sessionId, key, content) {

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useConversationStore } from '../../store/conversationStore'
 import { useUserStore } from '../../store/userStore'
@@ -35,16 +35,24 @@ export default function Sidebar({ isOpen, onClose }) {
   const [menuOpen, setMenuOpen] = useState(null) // holds convo id
   const [renaming, setRenaming] = useState(null) // holds convo id
   const [renameValue, setRenameValue] = useState('')
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false)
 
-  useEffect(() => {
+  const fetchConversations = useCallback(async () => {
     if (!user?.uid) return
     setLoading(true)
-    loadConversations(user.uid)
-      .then((convos) => setConversations(convos))
-      .catch((err) => console.error('Failed to load conversations:', err))
-      .finally(() => setLoading(false))
+    try {
+      const convos = await loadConversations(user.uid)
+      setConversations(convos)
+    } catch (err) {
+      console.error('Failed to load conversations:', err)
+    } finally {
+      setLoading(false)
+    }
   }, [user?.uid, setConversations])
+
+  useEffect(() => {
+    fetchConversations()
+  }, [fetchConversations])
 
   useEffect(() => {
     function handleKey(e) {

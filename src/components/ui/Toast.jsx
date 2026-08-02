@@ -41,6 +41,13 @@ const TEXT = {
   loading: 'text-violet-800',
 }
 
+// Export the hook separately to fix react-refresh warning
+export function useToast() {
+  const ctx = useContext(ToastContext)
+  if (!ctx) throw new Error('useToast must be used inside ToastProvider')
+  return ctx
+}
+
 export function ToastProvider({ children }) {
   const [toasts, setToasts] = useState([])
   const timerRef = useRef({})
@@ -50,22 +57,25 @@ export function ToastProvider({ children }) {
     clearTimeout(timerRef.current[id])
   }, [])
 
-  const toast = useCallback(({ message, type = 'info', duration = 3000 }) => {
+  const showToast = useCallback(({ message, type = 'info', duration = 3000 }) => {
     const id = Date.now().toString()
     setToasts((prev) => [...prev.slice(-4), { id, message, type }])
-
     if (duration > 0) {
-      timerRef.current[id] = setTimeout(() => dismiss(id), duration)
+      timerRef.current[id] = setTimeout(() => {
+        setToasts((prev) => prev.filter((t) => t.id !== id))
+      }, duration)
     }
-
     return id
-  }, [dismiss])
+  }, [])
 
-  // Convenience methods
-  toast.success = (message, opts) => toast({ message, type: 'success', ...opts })
-  toast.error = (message, opts) => toast({ message, type: 'error', duration: 5000, ...opts })
-  toast.info = (message, opts) => toast({ message, type: 'info', ...opts })
-  toast.loading = (message) => toast({ message, type: 'loading', duration: 0 })
+  // Build the toast API as a plain object — no mutation
+  const toast = {
+    show: showToast,
+    success: (message, opts) => showToast({ message, type: 'success', ...opts }),
+    error: (message, opts) => showToast({ message, type: 'error', duration: 5000, ...opts }),
+    info: (message, opts) => showToast({ message, type: 'info', ...opts }),
+    loading: (message) => showToast({ message, type: 'loading', duration: 0 }),
+  }
 
   return (
     <ToastContext.Provider value={{ toast, dismiss }}>
@@ -74,16 +84,12 @@ export function ToastProvider({ children }) {
         {toasts.map((t) => (
           <div
             key={t.id}
-            className={`flex items-center gap-3 px-4 py-3 rounded-2xl border shadow-lg w-full pointer-events-auto
-              transition-all duration-300 ${BG[t.type]}`}
+            className={`flex items-center gap-3 px-4 py-3 rounded-2xl border shadow-lg w-full pointer-events-auto ${BG[t.type]}`}
             style={{ animation: 'slideUp 0.2s ease-out' }}
           >
             <span className="flex-shrink-0">{ICONS[t.type]}</span>
             <p className={`text-sm font-medium flex-1 ${TEXT[t.type]}`}>{t.message}</p>
-            <button
-              onClick={() => dismiss(t.id)}
-              className="text-zinc-400 hover:text-zinc-600 flex-shrink-0"
-            >
+            <button onClick={() => dismiss(t.id)} className="text-zinc-400 hover:text-zinc-600 flex-shrink-0">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
                 <line x1="18" y1="6" x2="6" y2="18"/>
                 <line x1="6" y1="6" x2="18" y2="18"/>
@@ -92,7 +98,6 @@ export function ToastProvider({ children }) {
           </div>
         ))}
       </div>
-
       <style>{`
         @keyframes slideUp {
           from { opacity: 0; transform: translateY(12px); }
@@ -101,10 +106,4 @@ export function ToastProvider({ children }) {
       `}</style>
     </ToastContext.Provider>
   )
-}
-
-export function useToast() {
-  const ctx = useContext(ToastContext)
-  if (!ctx) throw new Error('useToast must be used inside ToastProvider')
-  return ctx
 }

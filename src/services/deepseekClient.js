@@ -17,27 +17,44 @@ export async function streamCompletion({
   onChunk,
   signal,
 }) {
-  const response = await fetch(BASE_URL, {
-    method: 'POST',
-    signal,
-    headers: {
-      'Authorization': `Bearer ${getApiKey()}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model,
-      messages,
-      temperature,
-      max_tokens: maxTokens,
-      stream: true,
-    }),
-  })
+  const attemptStream = async () => {
+    const response = await fetch(BASE_URL, {
+      method: 'POST',
+      signal,
+      headers: {
+        'Authorization': `Bearer ${getApiKey()}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model,
+        messages,
+        temperature,
+        max_tokens: maxTokens,
+        stream: true,
+      }),
+    })
 
-  if (!response.ok) {
-    const err = await response.json().catch(() => ({}))
-    const error = new Error(err?.error?.message || `Request failed: ${response.status}`)
-    error.status = response.status
-    throw error
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}))
+      const error = new Error(err?.error?.message || `Request failed: ${response.status}`)
+      error.status = response.status
+      throw error
+    }
+
+    return response
+  }
+
+  let response
+  try {
+    response = await attemptStream()
+  } catch (err) {
+    // Retry once after 1.5s on connection errors
+    if (err.status !== 401 && err.status !== 403) {
+      await new Promise((r) => setTimeout(r, 1500))
+      response = await attemptStream()
+    } else {
+      throw err
+    }
   }
 
   const reader = response.body.getReader()

@@ -7,9 +7,8 @@ import {
   onAuthStateChanged,
   sendPasswordResetEmail,
   sendEmailVerification,
-  getIdToken,
 } from 'firebase/auth'
-import { doc, setDoc, getDoc, updateDoc } from 'firebase/firestore'
+import { doc, setDoc, getDoc } from 'firebase/firestore'
 import { auth, db, googleProvider } from '../services/firebase'
 
 export function useAuth() {
@@ -94,7 +93,7 @@ export function useAuth() {
       clearTimeout(safetyTimer)
       unsub()
     }
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [])
 
   async function signup(email, password) {
     return createUserWithEmailAndPassword(auth, email, password)

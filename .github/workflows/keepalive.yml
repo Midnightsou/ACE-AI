@@ -1,0 +1,27 @@
+name: Keep Alive
+
+on:
+  schedule:
+    - cron: '*/10 * * * *'  # every 10 minutes
+  workflow_dispatch:         # manual trigger
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping app
+        run: |
+          curl -f https://ace-ai.cv || echo "App ping failed"
+
+      - name: Warm DeepSeek connection
+        run: |
+          curl -s -o /dev/null -w "%{http_code}" \
+            -X POST https://api.deepseek.com/v1/chat/completions \
+            -H "Authorization: Bearer ${{ secrets.DEEPSEEK_API_KEY }}" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "model": "deepseek-chat",
+              "messages": [{"role": "user", "content": "ping"}],
+              "max_tokens": 1,
+              "stream": false
+            }' || echo "DeepSeek ping done"

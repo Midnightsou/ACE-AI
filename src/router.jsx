@@ -1,4 +1,4 @@
-import { lazy, Suspense } from 'react'
+import { lazy, Suspense, useState, useEffect } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { useAuth } from './hooks/useAuth'
 import { useUserStore } from './store/userStore'
@@ -28,8 +28,18 @@ function ProtectedRoute({ children }) {
   const { user, loading } = useAuth()
   const userStoreUser = useUserStore((s) => s.user)
   const activeUser = userStoreUser || user
+  const [timedOut, setTimedOut] = useState(false)
 
-  if (loading) return <Spinner />
+  // Hard timeout — never show spinner for more than 6 seconds
+  useEffect(() => {
+    const t = setTimeout(() => setTimedOut(true), 6000)
+    return () => clearTimeout(t)
+  }, [])
+
+  // Still loading but not timed out — show spinner
+  if (loading && !timedOut) return <Spinner />
+
+  // Timed out or not loading — proceed with whatever we have
   if (!activeUser) return <Navigate to="/login" replace />
 
   const isOnboarding = window.location.pathname === '/onboarding'

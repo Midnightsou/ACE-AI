@@ -14,7 +14,7 @@ export const toolCategories = [
   { id: 'general', label: 'General' },
   { id: 'productivity', label: 'Productivity' },
   { id: 'technical', label: 'Technical' },
-  { id: 'business', label: 'Business' },
+ 
 ]
 
 export function getToolById(id) {

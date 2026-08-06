@@ -6,6 +6,7 @@ import {
   signOut,
   onAuthStateChanged,
   sendPasswordResetEmail,
+  sendEmailVerification,
   getIdToken,
 } from 'firebase/auth'
 import { doc, setDoc, getDoc, updateDoc } from 'firebase/firestore'
@@ -15,69 +16,85 @@ export function useAuth() {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
 
-  // Declare FIRST before useEffect
   async function getOrCreateProfile(firebaseUser) {
     const ref = doc(db, 'students', firebaseUser.uid)
 
-    for (let attempt = 0; attempt < 3; attempt += 1) {
+    for (let attempt = 0; attempt < 3; attempt++) {
       try {
         const snap = await getDoc(ref)
-
         if (!snap.exists()) {
           const newProfile = {
             uid: firebaseUser.uid,
-            email: firebaseUser.email,
+            email: firebaseUser.email || '',
             name: firebaseUser.displayName || '',
-            level: null,
-            examDate: null,
-            examType: null,
             language: 'english',
-            subjects: [],
-            weakAreas: {},
-            studyTime: {},
-            streak: 0,
-            lastActiveDate: new Date().toDateString(),
             isPro: false,
+            plan: 'free',
             dailyMessageCount: 0,
             lastMessageReset: new Date().toDateString(),
             onboarded: false,
             createdAt: new Date().toISOString(),
+            lastActive: new Date().toISOString(),
           }
           await setDoc(ref, newProfile)
           return newProfile
         }
-
-        await updateDoc(ref, {
-          lastActiveDate: new Date().toDateString(),
-        }).catch(() => {})
-
         return snap.data()
       } catch (err) {
         if (attempt === 2) throw err
-        await new Promise((resolve) => setTimeout(resolve, 1000 * (attempt + 1)))
+        await new Promise((r) => setTimeout(r, 1000 * (attempt + 1)))
       }
     }
   }
 
-  // useEffect comes AFTER the function it calls
   useEffect(() => {
+    // Safety timeout — if auth takes more than 8 seconds, unblock the app
+    const safetyTimer = setTimeout(() => {
+      setLoading(false)
+    }, 8000)
+
     const unsub = onAuthStateChanged(auth, async (firebaseUser) => {
+      clearTimeout(safetyTimer)
+
       if (firebaseUser) {
         try {
-          await getIdToken(firebaseUser, true)
-          const profile = await getOrCreateProfile(firebaseUser)
+          // Timeout for profile fetch — 5 seconds max
+          const profilePromise = getOrCreateProfile(firebaseUser)
+          const timeoutPromise = new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('Profile fetch timeout')), 5000)
+          )
+
+          const profile = await Promise.race([profilePromise, timeoutPromise])
           setUser({ ...firebaseUser, profile })
         } catch (err) {
-          console.error('Auth error:', err)
-          setUser({ ...firebaseUser, profile: {} })
+          console.error('Auth profile error:', err)
+          // Still let the user through with empty profile
+          // Better to reach onboarding than be stuck forever
+          setUser({
+            ...firebaseUser,
+            profile: {
+              uid: firebaseUser.uid,
+              email: firebaseUser.email || '',
+              name: firebaseUser.displayName || '',
+              language: 'english',
+              isPro: false,
+              plan: 'free',
+              onboarded: false,
+            },
+          })
         }
       } else {
         setUser(null)
       }
+
       setLoading(false)
     })
-    return unsub
-  }, [])
+
+    return () => {
+      clearTimeout(safetyTimer)
+      unsub()
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   async function signup(email, password) {
     return createUserWithEmailAndPassword(auth, email, password)
@@ -96,8 +113,21 @@ export function useAuth() {
   }
 
   async function forgotPassword(email) {
-    await sendPasswordResetEmail(auth, email)
+    return sendPasswordResetEmail(auth, email)
   }
 
-  return { user, loading, signup, login, loginWithGoogle, logout, forgotPassword }
+  async function sendVerificationEmail() {
+    const currentUser = auth.currentUser
+    if (!currentUser) throw new Error('Not logged in')
+    if (currentUser.emailVerified) throw new Error('Already verified')
+    await sendEmailVerification(currentUser, {
+      url: window.location.origin + '/chat',
+    })
+  }
+
+  return {
+    user, loading,
+    signup, login, loginWithGoogle, logout,
+    forgotPassword, sendVerificationEmail,
+  }
 }

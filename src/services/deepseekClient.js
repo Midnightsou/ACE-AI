@@ -1,4 +1,7 @@
-const BASE_URL = 'https://api.deepseek.com/v1/chat/completions'
+// Detect environment — use proxy on production, direct on localhost
+const BASE_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+  ? 'https://api.deepseek.com/v1/chat/completions'
+  : '/api/chat'
 
 export const MODELS = {
   chat: 'deepseek-chat',
@@ -17,14 +20,24 @@ export async function streamCompletion({
   onChunk,
   signal,
 }) {
+  const isLocalhost = window.location.hostname === 'localhost' ||
+    window.location.hostname === '127.0.0.1'
+
+  const headers = {
+    'Content-Type': 'application/json',
+  }
+
+  // Only send API key directly on localhost
+  // On production the proxy handles auth server-side
+  if (isLocalhost) {
+    headers['Authorization'] = `Bearer ${getApiKey()}`
+  }
+
   const attemptStream = async () => {
     const response = await fetch(BASE_URL, {
       method: 'POST',
       signal,
-      headers: {
-        'Authorization': `Bearer ${getApiKey()}`,
-        'Content-Type': 'application/json',
-      },
+      headers,
       body: JSON.stringify({
         model,
         messages,
@@ -36,7 +49,9 @@ export async function streamCompletion({
 
     if (!response.ok) {
       const err = await response.json().catch(() => ({}))
-      const error = new Error(err?.error?.message || `Request failed: ${response.status}`)
+      const error = new Error(
+        err?.error?.message || `Request failed: ${response.status}`
+      )
       error.status = response.status
       throw error
     }
@@ -48,7 +63,6 @@ export async function streamCompletion({
   try {
     response = await attemptStream()
   } catch (err) {
-    // Retry once after 1.5s on connection errors
     if (err.status !== 401 && err.status !== 403) {
       await new Promise((r) => setTimeout(r, 1500))
       response = await attemptStream()
@@ -76,7 +90,7 @@ export async function streamCompletion({
           fullContent += delta
           onChunk?.(fullContent)
         }
-      } catch (_e) { /* ignore parse errors on stream chunks */ }
+      } catch { }
     }
   }
 
@@ -89,12 +103,20 @@ export async function complete({
   temperature = 0.5,
   maxTokens = 2048,
 }) {
+  const isLocalhost = window.location.hostname === 'localhost' ||
+    window.location.hostname === '127.0.0.1'
+
+  const headers = {
+    'Content-Type': 'application/json',
+  }
+
+  if (isLocalhost) {
+    headers['Authorization'] = `Bearer ${getApiKey()}`
+  }
+
   const response = await fetch(BASE_URL, {
     method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${getApiKey()}`,
-      'Content-Type': 'application/json',
-    },
+    headers,
     body: JSON.stringify({
       model,
       messages,

@@ -38,7 +38,14 @@ export function useAuth() {
           await setDoc(ref, newProfile)
           return newProfile
         }
-        return snap.data()
+        const profile = snap.data()
+
+        // Cache onboarded state — survives page refresh within same session
+        if (profile.onboarded) {
+          sessionStorage.setItem(`onboarded_${firebaseUser.uid}`, 'true')
+        }
+
+        return profile
       } catch (err) {
         if (attempt === 2) throw err
         await new Promise((r) => setTimeout(r, 1000 * (attempt + 1)))

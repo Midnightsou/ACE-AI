@@ -1,7 +1,11 @@
-// Detect environment — use proxy on production, direct on localhost
-const BASE_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-  ? 'https://api.deepseek.com/v1/chat/completions'
-  : '/api/chat'
+function getBaseUrl() {
+  const isLocal = typeof window !== 'undefined' &&
+    (window.location.hostname === 'localhost' ||
+     window.location.hostname === '127.0.0.1')
+  return isLocal
+    ? 'https://api.deepseek.com/v1/chat/completions'
+    : '/api/chat'
+}
 
 export const MODELS = {
   chat: 'deepseek-chat',
@@ -12,6 +16,16 @@ export function getApiKey() {
   return import.meta.env.VITE_DEEPSEEK_API_KEY
 }
 
+function buildHeaders() {
+  const isLocal = typeof window !== 'undefined' &&
+    (window.location.hostname === 'localhost' ||
+     window.location.hostname === '127.0.0.1')
+
+  const headers = { 'Content-Type': 'application/json' }
+  if (isLocal) headers['Authorization'] = `Bearer ${getApiKey()}`
+  return headers
+}
+
 export async function streamCompletion({
   messages,
   model = MODELS.chat,
@@ -20,24 +34,13 @@ export async function streamCompletion({
   onChunk,
   signal,
 }) {
-  const isLocalhost = window.location.hostname === 'localhost' ||
-    window.location.hostname === '127.0.0.1'
+  const BASE_URL = getBaseUrl()
 
-  const headers = {
-    'Content-Type': 'application/json',
-  }
-
-  // Only send API key directly on localhost
-  // On production the proxy handles auth server-side
-  if (isLocalhost) {
-    headers['Authorization'] = `Bearer ${getApiKey()}`
-  }
-
-  const attemptStream = async () => {
+  const makeRequest = async () => {
     const response = await fetch(BASE_URL, {
       method: 'POST',
       signal,
-      headers,
+      headers: buildHeaders(),
       body: JSON.stringify({
         model,
         messages,
@@ -61,14 +64,13 @@ export async function streamCompletion({
 
   let response
   try {
-    response = await attemptStream()
+    response = await makeRequest()
   } catch (err) {
-    if (err.status !== 401 && err.status !== 403) {
-      await new Promise((r) => setTimeout(r, 1500))
-      response = await attemptStream()
-    } else {
-      throw err
-    }
+    if (err.name === 'AbortError') throw err
+    if (err.status === 401 || err.status === 403) throw err
+    // Retry once after short delay
+    await new Promise((r) => setTimeout(r, 1500))
+    response = await makeRequest()
   }
 
   const reader = response.body.getReader()
@@ -103,20 +105,11 @@ export async function complete({
   temperature = 0.5,
   maxTokens = 2048,
 }) {
-  const isLocalhost = window.location.hostname === 'localhost' ||
-    window.location.hostname === '127.0.0.1'
-
-  const headers = {
-    'Content-Type': 'application/json',
-  }
-
-  if (isLocalhost) {
-    headers['Authorization'] = `Bearer ${getApiKey()}`
-  }
+  const BASE_URL = getBaseUrl()
 
   const response = await fetch(BASE_URL, {
     method: 'POST',
-    headers,
+    headers: buildHeaders(),
     body: JSON.stringify({
       model,
       messages,

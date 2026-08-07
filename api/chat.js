@@ -9,7 +9,7 @@ export default async function handler(req) {
       headers: {
         'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Methods': 'POST, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+        'Access-Control-Allow-Headers': 'Content-Type',
       },
     })
   }
@@ -18,13 +18,29 @@ export default async function handler(req) {
     return new Response('Method not allowed', { status: 405 })
   }
 
-  const body = await req.json()
-  const apiKey = process.env.DEEPSEEK_API_KEY || process.env.VITE_DEEPSEEK_API_KEY
+  // Server-side env var — no VITE_ prefix
+  const apiKey = process.env.DEEPSEEK_API_KEY
 
   if (!apiKey) {
     return new Response(
-      JSON.stringify({ error: 'API key not configured' }),
-      { status: 500, headers: { 'Content-Type': 'application/json' } }
+      JSON.stringify({ error: 'DEEPSEEK_API_KEY not set on server' }),
+      {
+        status: 500,
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*',
+        },
+      }
+    )
+  }
+
+  let body
+  try {
+    body = await req.json()
+  } catch {
+    return new Response(
+      JSON.stringify({ error: 'Invalid JSON body' }),
+      { status: 400, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } }
     )
   }
 
@@ -38,13 +54,15 @@ export default async function handler(req) {
       body: JSON.stringify(body),
     })
 
-    // Stream the response back
+    const contentType = response.headers.get('Content-Type') || 'text/event-stream'
+
     return new Response(response.body, {
       status: response.status,
       headers: {
-        'Content-Type': response.headers.get('Content-Type') || 'text/event-stream',
+        'Content-Type': contentType,
         'Access-Control-Allow-Origin': '*',
         'Cache-Control': 'no-cache',
+        'X-Accel-Buffering': 'no',
       },
     })
   } catch (err) {

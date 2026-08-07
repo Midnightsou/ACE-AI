@@ -45,6 +45,9 @@ export default function OnboardingFlow() {
 
       await updateProfile(user.uid, updates)
 
+      // Cache so refresh doesn't loop back
+      sessionStorage.setItem(`onboarded_${user.uid}`, 'true')
+
       // Update local Zustand state immediately; do not wait for the auth listener.
       setUser({
         ...user,
@@ -58,6 +61,7 @@ export default function OnboardingFlow() {
     } catch (err) {
       console.error('Onboarding save error:', err)
       // Let the user continue even if the profile save fails.
+      sessionStorage.setItem(`onboarded_${user.uid}`, 'true')
       navigate('/chat', { replace: true })
     } finally {
       setSaving(false)
@@ -66,6 +70,8 @@ export default function OnboardingFlow() {
 
   function handleSkip() {
     if (saving) return
+
+    sessionStorage.setItem(`onboarded_${user.uid}`, 'true')
 
     // Mark as onboarded locally so the router does not loop.
     setUser({

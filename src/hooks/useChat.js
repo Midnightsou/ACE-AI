@@ -21,6 +21,13 @@ import {
 import { fetchURLContent } from '../services/urlFetcher'
 import { canUseFeature } from '../config/pricing'
 
+// Rough token estimate — 1 token ≈ 4 characters
+function estimateTokens(text) {
+  return Math.ceil(text.length / 4)
+}
+
+const MAX_INPUT_TOKENS = 3000 // safe limit for user message
+
 async function generateTitle(messages) {
   try {
     const context = messages
@@ -71,6 +78,17 @@ export function useChat() {
 
   async function send(text) {
     if (!text.trim() || loading) return
+
+    // Check if message is too long
+    const estimatedTokens = estimateTokens(text)
+    if (estimatedTokens > MAX_INPUT_TOKENS) {
+      addMessage({ role: 'user', content: text })
+      addMessage({
+        role: 'assistant',
+        content: `Your message is too long to process (approximately ${estimatedTokens} tokens). Please try breaking it into smaller parts — for example, ask one question at a time, or paste a shorter section of text. If you need to analyse a long document, use Dojo mode which is built for that.`,
+      })
+      return
+    }
 
     // Abort any in-flight request
     if (abortRef.current) abortRef.current.abort()

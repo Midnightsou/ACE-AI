@@ -43,13 +43,17 @@ function ProtectedRoute({ children }) {
   if (!activeUser) return <Navigate to="/login" replace />
 
   const isOnboarding = window.location.pathname === '/onboarding'
-  const needsOnboarding = activeUser.profile && !activeUser.profile.onboarded
 
-  if (needsOnboarding && !isOnboarding) {
+  // Check live profile AND sessionStorage cache
+  const cachedOnboarded = sessionStorage.getItem(`onboarded_${activeUser.uid}`) === 'true'
+  const profileOnboarded = activeUser.profile?.onboarded === true
+  const isOnboarded = profileOnboarded || cachedOnboarded
+
+  if (!isOnboarded && !isOnboarding) {
     return <Navigate to="/onboarding" replace />
   }
 
-  if (!needsOnboarding && isOnboarding) {
+  if (isOnboarded && isOnboarding) {
     return <Navigate to="/chat" replace />
   }
 

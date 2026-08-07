@@ -18,11 +18,5 @@
         { "key": "Access-Control-Allow-Headers", "value": "Content-Type" }
       ]
     }
-  ],
-  "crons": [
-    {
-      "path": "/api/ping",
-      "schedule": "*/10 * * * *"
-    }
   ]
 }

@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { Analytics } from '@vercel/analytics/react'
 import { useAuth } from './hooks/useAuth'
 import { useUserStore } from './store/userStore'
 import { useChatStore } from './store/chatStore'
@@ -69,6 +70,7 @@ export default function App() {
     <>
       <NetworkBanner />
       <AppRouter />
+      <Analytics />
     </>
   )
 }

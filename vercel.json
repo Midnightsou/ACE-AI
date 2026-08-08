@@ -9,11 +9,5 @@
         { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
       ]
     }
-  ],
-  "crons": [
-    {
-      "path": "/api/ping",
-      "schedule": "*/10 * * * *"
-    }
   ]
 }

@@ -15,6 +15,7 @@ import SplashScreen from './components/SplashScreen'
 import { useState } from 'react'
 import { useThemeStore } from './store/themeStore'
 import NetworkBanner from './components/ui/NetworkBanner'
+import { Analytics } from '@vercel/analytics/react'
 
 export default function App() {
   const { user } = useAuth()
@@ -69,6 +70,7 @@ export default function App() {
     <>
       <NetworkBanner />
       <AppRouter />
+      <Analytics />
     </>
   )
 }

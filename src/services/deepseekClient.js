@@ -76,12 +76,20 @@ export async function streamCompletion({
   const reader = response.body.getReader()
   const decoder = new TextDecoder()
   let fullContent = ''
+  let buffer = '' // <--- Add buffer to store partial lines across chunks
 
   while (true) {
     const { done, value } = await reader.read()
     if (done) break
-    const chunk = decoder.decode(value, { stream: true })
-    for (const line of chunk.split('\n')) {
+
+    // Append incoming chunk text to buffer
+    buffer += decoder.decode(value, { stream: true })
+    const lines = buffer.split('\n')
+    
+    // Hold onto the last element (it might be an incomplete line)
+    buffer = lines.pop() || ''
+
+    for (const line of lines) {
       const trimmed = line.trim()
       if (!trimmed || trimmed === 'data: [DONE]') continue
       if (!trimmed.startsWith('data: ')) continue

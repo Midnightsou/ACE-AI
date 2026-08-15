@@ -69,7 +69,7 @@ export default function OnboardingFlow() {
     setUser({
       ...user,
       profile: {
-        ...user.profile,
+        ...user?.profile,
         ...updates,
       },
     })
@@ -80,88 +80,75 @@ export default function OnboardingFlow() {
 
     setSaving(true)
 
-    const updates = {
-      name: name.trim(),
-      language,
-      useCase: selectedUseCase,
-      onboarded: true,
-    }
-
-    // Update local state immediately.
-    // The router should not wait for Firestore.
-    updateLocalUser(updates)
-
-    // Cache onboarding status for this session.
-    sessionStorage.setItem(
-      `onboarded_${user.uid}`,
-      'true'
-    )
-
-    // Move user into the app immediately.
-    navigate('/chat', {
-      replace: true,
-    })
-
-    // Save Firestore data in the background.
     try {
-      await updateProfile(
-        user.uid,
-        updates
-      )
-    } catch (err) {
-      console.error(
-        'Background onboarding save failed:',
-        err
+      const updates = {
+        name: name.trim(),
+        language,
+        useCase: selectedUseCase,
+        onboarded: true,
+      }
+
+      // Permanent account-level onboarding status.
+      // Firestore is the source of truth — save first.
+      await updateProfile(user.uid, updates)
+
+      // Only cache after Firestore succeeds.
+      sessionStorage.setItem(
+        `onboarded_${user.uid}`,
+        'true'
       )
 
-      // Optional retry after 3 seconds.
-      setTimeout(() => {
-        updateProfile(
-          user.uid,
-          updates
-        ).catch((retryErr) => {
-          console.error(
-            'Onboarding retry failed:',
-            retryErr
-          )
-        })
-      }, 3000)
+      // Update current app state.
+      updateLocalUser(updates)
+
+      navigate('/chat', {
+        replace: true,
+      })
+    } catch (err) {
+      console.error('Onboarding save error:', err)
+
+      // Stay on onboarding.
+      // Do NOT mark the account as onboarded locally
+      // if Firestore did not save it.
     } finally {
       setSaving(false)
     }
   }
 
-  function handleSkip() {
+  async function handleSkip() {
     if (saving || !user?.uid) return
 
-    const updates = {
-      onboarded: true,
-    }
+    setSaving(true)
 
-    // Update Zustand immediately.
-    updateLocalUser(updates)
+    try {
+      const updates = {
+        onboarded: true,
+      }
 
-    // Prevent routing loops during this session.
-    sessionStorage.setItem(
-      `onboarded_${user.uid}`,
-      'true'
-    )
+      // Save permanently first.
+      await updateProfile(user.uid, updates)
 
-    // Navigate immediately.
-    navigate('/chat', {
-      replace: true,
-    })
-
-    // Firestore is completely non-blocking.
-    updateProfile(
-      user.uid,
-      updates
-    ).catch((err) => {
-      console.error(
-        'Background skip onboarding save failed:',
-        err
+      // Then cache for this session.
+      sessionStorage.setItem(
+        `onboarded_${user.uid}`,
+        'true'
       )
-    })
+
+      // Update current state.
+      updateLocalUser(updates)
+
+      navigate('/chat', {
+        replace: true,
+      })
+    } catch (err) {
+      console.error('Skip onboarding error:', err)
+
+      // Stay on onboarding.
+      // Do NOT mark the account as onboarded locally
+      // if Firestore did not save it.
+    } finally {
+      setSaving(false)
+    }
   }
 
   function next() {

@@ -11,6 +11,7 @@ import {
   limit,
   where,
   serverTimestamp,
+  increment,
 } from 'firebase/firestore'
 import { db } from './firebase'
 
@@ -201,15 +202,17 @@ export async function getMessageCount(uid) {
 }
 
 export async function incrementMessageCount(uid) {
-  const today = new Date().toDateString()
-  const snap = await getDoc(doc(db, 'students', uid))
+  const userRef = doc(db, 'students', uid)
+  const snap = await getDoc(userRef)
+
   if (!snap.exists()) return
 
   const data = snap.data()
+  const today = new Date().toDateString()
   const isNewDay = data.lastMessageReset !== today
 
-  await updateDoc(doc(db, 'students', uid), {
-    dailyMessageCount: isNewDay ? 1 : (data.dailyMessageCount || 0) + 1,
+  await updateDoc(userRef, {
+    dailyMessageCount: isNewDay ? 1 : increment(1),
     lastMessageReset: today,
     lastActive: new Date().toISOString(),
   })

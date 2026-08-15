@@ -15,24 +15,50 @@ import { fetchURLContent } from '../services/urlFetcher'
 import { canUseFeature } from '../config/pricing'
 
 // Fire-and-forget Firebase save — never blocks the AI
-async function saveToFirebase(uid, convIdRef, title, userMessage, assistantContent, setConversations) {
+async function saveToFirebase(
+  uid,
+  convIdRef,
+  title,
+  userMessage,
+  assistantContent,
+  setConversations,
+  setActiveConversationId,
+  bringToTop,
+) {
   try {
     let convId = convIdRef.current
 
+    // Create conversation if this is a new chat
     if (!convId) {
       convId = await createConversation(uid, title)
+
+      // Set ref immediately
       convIdRef.current = convId
+
+      // Update Zustand conversation state
+      setActiveConversationId(convId)
     }
 
+    // Save both messages
     await saveMessage(uid, convId, userMessage)
-    await saveMessage(uid, convId, { role: 'assistant', content: assistantContent })
+
+    await saveMessage(uid, convId, {
+      role: 'assistant',
+      content: assistantContent,
+    })
+
+    // Count successful AI message
     await incrementMessageCount(uid)
 
-    // Refresh sidebar in background
-    loadConversations(uid).then(setConversations).catch(() => {})
+    // Refresh sidebar
+    loadConversations(uid)
+      .then((conversations) => {
+        setConversations(conversations)
+        bringToTop(convId)
+      })
+      .catch(() => {})
   } catch (err) {
     console.error('Background Firebase save failed:', err)
-    // AI already responded — user is not affected
   }
 }
 
@@ -171,6 +197,7 @@ export function useChat() {
       const uid = user?.uid
 
       if (uid) {
+        // Fire and forget — never blocks the user
         saveToFirebase(
           uid,
           convIdRef,
@@ -178,13 +205,9 @@ export function useChat() {
           userMessage,
           fullContent,
           setConversations,
-        ).then(() => {
-          // Update active conversation ID after save
-          if (convIdRef.current) {
-            setActiveConversationId(convIdRef.current)
-            bringToTop(convIdRef.current)
-          }
-        })
+          setActiveConversationId,
+          bringToTop,
+        )
       }
 
       // Auto-generate title after 2nd exchange

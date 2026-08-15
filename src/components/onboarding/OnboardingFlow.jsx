@@ -11,17 +11,49 @@ const languages = [
 ]
 
 const useCases = [
-  { id: 'work', label: 'Work & Career', icon: '💼', desc: 'CVs, emails, proposals' },
-  { id: 'study', label: 'Study & Research', icon: '📚', desc: 'Essays, research, quizzes' },
-  { id: 'code', label: 'Coding', icon: '💻', desc: 'Build and debug software' },
-  { id: 'creative', label: 'Creative work', icon: '🎨', desc: 'Writing, images, ideas' },
-  { id: 'general', label: 'General assistant', icon: '💬', desc: 'A bit of everything' },
+  {
+    id: 'work',
+    label: 'Work & Career',
+    icon: '💼',
+    desc: 'CVs, emails, proposals',
+  },
+  {
+    id: 'study',
+    label: 'Study & Research',
+    icon: '📚',
+    desc: 'Essays, research, quizzes',
+  },
+  {
+    id: 'code',
+    label: 'Coding',
+    icon: '💻',
+    desc: 'Build and debug software',
+  },
+  {
+    id: 'creative',
+    label: 'Creative work',
+    icon: '🎨',
+    desc: 'Writing, images, ideas',
+  },
+  {
+    id: 'general',
+    label: 'General assistant',
+    icon: '💬',
+    desc: 'A bit of everything',
+  },
 ]
 
-const STEPS = ['welcome', 'name', 'language', 'usecase', 'done']
+const STEPS = [
+  'welcome',
+  'name',
+  'language',
+  'usecase',
+  'done',
+]
 
 export default function OnboardingFlow() {
   const navigate = useNavigate()
+
   const user = useUserStore((s) => s.user)
   const setUser = useUserStore((s) => s.setUser)
 
@@ -31,138 +63,236 @@ export default function OnboardingFlow() {
   const [selectedUseCase, setSelectedUseCase] = useState('')
   const [saving, setSaving] = useState(false)
 
+  function updateLocalUser(updates) {
+    if (!user) return
+
+    setUser({
+      ...user,
+      profile: {
+        ...user.profile,
+        ...updates,
+      },
+    })
+  }
+
   async function handleFinish() {
-    if (saving) return
+    if (saving || !user?.uid) return
 
     setSaving(true)
+
+    const updates = {
+      name: name.trim(),
+      language,
+      useCase: selectedUseCase,
+      onboarded: true,
+    }
+
+    // Update local state immediately.
+    // The router should not wait for Firestore.
+    updateLocalUser(updates)
+
+    // Cache onboarding status for this session.
+    sessionStorage.setItem(
+      `onboarded_${user.uid}`,
+      'true'
+    )
+
+    // Move user into the app immediately.
+    navigate('/chat', {
+      replace: true,
+    })
+
+    // Save Firestore data in the background.
     try {
-      const updates = {
-        name,
-        language,
-        useCase: selectedUseCase,
-        onboarded: true,
-      }
-
-      await updateProfile(user.uid, updates)
-
-      // Cache so refresh doesn't loop back
-      sessionStorage.setItem(`onboarded_${user.uid}`, 'true')
-
-      // Update local Zustand state immediately; do not wait for the auth listener.
-      setUser({
-        ...user,
-        profile: {
-          ...user?.profile,
-          ...updates,
-        },
-      })
-
-      navigate('/chat', { replace: true })
+      await updateProfile(
+        user.uid,
+        updates
+      )
     } catch (err) {
-      console.error('Onboarding save error:', err)
-      // Let the user continue even if the profile save fails.
-      sessionStorage.setItem(`onboarded_${user.uid}`, 'true')
-      navigate('/chat', { replace: true })
+      console.error(
+        'Background onboarding save failed:',
+        err
+      )
+
+      // Optional retry after 3 seconds.
+      setTimeout(() => {
+        updateProfile(
+          user.uid,
+          updates
+        ).catch((retryErr) => {
+          console.error(
+            'Onboarding retry failed:',
+            retryErr
+          )
+        })
+      }, 3000)
     } finally {
       setSaving(false)
     }
   }
 
   function handleSkip() {
-    if (saving) return
+    if (saving || !user?.uid) return
 
-    sessionStorage.setItem(`onboarded_${user.uid}`, 'true')
+    const updates = {
+      onboarded: true,
+    }
 
-    // Mark as onboarded locally so the router does not loop.
-    setUser({
-      ...user,
-      profile: {
-        ...user?.profile,
-        onboarded: true,
-      },
+    // Update Zustand immediately.
+    updateLocalUser(updates)
+
+    // Prevent routing loops during this session.
+    sessionStorage.setItem(
+      `onboarded_${user.uid}`,
+      'true'
+    )
+
+    // Navigate immediately.
+    navigate('/chat', {
+      replace: true,
     })
 
-    // Persist in the background without blocking navigation.
-    updateProfile(user.uid, { onboarded: true }).catch(console.error)
-    navigate('/chat', { replace: true })
+    // Firestore is completely non-blocking.
+    updateProfile(
+      user.uid,
+      updates
+    ).catch((err) => {
+      console.error(
+        'Background skip onboarding save failed:',
+        err
+      )
+    })
   }
 
   function next() {
-    setStep((s) => s + 1)
+    setStep((currentStep) =>
+      Math.min(
+        currentStep + 1,
+        STEPS.length - 1
+      )
+    )
   }
 
   return (
     <div className="min-h-screen bg-zinc-50 flex items-center justify-center px-4">
+
       <div className="w-full max-w-md">
 
         {/* Progress dots */}
         <div className="flex items-center justify-center gap-2 mb-8">
+
           {STEPS.slice(1).map((_, i) => (
             <div
               key={i}
-              className={`h-1.5 rounded-full transition-all duration-300
-                ${i < step
-                  ? 'bg-violet-600 w-6'
-                  : i === step - 1
+              className={`
+                h-1.5 rounded-full
+                transition-all duration-300
+                ${
+                  i < step
                     ? 'bg-violet-600 w-6'
-                    : 'bg-zinc-200 w-3'
-                }`}
+                    : i === step - 1
+                      ? 'bg-violet-600 w-6'
+                      : 'bg-zinc-200 w-3'
+                }
+              `}
             />
           ))}
+
         </div>
 
-        {/* Step 0 — Welcome */}
+        {/* STEP 0 — Welcome */}
         {step === 0 && (
+
           <div className="flex flex-col items-center gap-6 text-center">
+
             <div className="w-20 h-20 bg-violet-600 rounded-3xl flex items-center justify-center shadow-lg shadow-violet-200">
-              <span className="text-white text-3xl font-bold">A</span>
+
+              <span className="text-white text-3xl font-bold">
+                A
+              </span>
+
             </div>
+
             <div>
-              <h1 className="text-2xl font-bold text-zinc-900">Welcome to Ace</h1>
+
+              <h1 className="text-2xl font-bold text-zinc-900">
+                Welcome to Ace
+              </h1>
+
               <p className="text-zinc-500 mt-2 leading-relaxed">
-                Your AI workspace for writing, coding, research, and more. Let's set things up in 30 seconds.
+                Your AI workspace for writing, coding,
+                research, and more. Let's set things up
+                in 30 seconds.
               </p>
+
             </div>
+
             <div className="flex flex-col gap-3 w-full">
+
               <button
                 onClick={next}
                 className="w-full py-3.5 bg-violet-600 hover:bg-violet-700 text-white font-medium rounded-2xl transition-colors"
               >
                 Get started
               </button>
+
               <button
                 onClick={handleSkip}
                 className="text-sm text-zinc-400 hover:text-zinc-600 transition-colors"
               >
                 Skip setup
               </button>
+
             </div>
+
           </div>
         )}
 
-        {/* Step 1 — Name */}
+        {/* STEP 1 — Name */}
         {step === 1 && (
+
           <div className="flex flex-col gap-6">
+
             <div>
-              <h2 className="text-xl font-bold text-zinc-900">What should I call you?</h2>
-              <p className="text-sm text-zinc-500 mt-1">Ace will use this to personalise your experience.</p>
+
+              <h2 className="text-xl font-bold text-zinc-900">
+                What should I call you?
+              </h2>
+
+              <p className="text-sm text-zinc-500 mt-1">
+                Ace will use this to personalise your experience.
+              </p>
+
             </div>
+
             <input
               type="text"
               value={name}
-              onChange={(e) => setName(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && name.trim() && next()}
+              onChange={(e) =>
+                setName(e.target.value)
+              }
+              onKeyDown={(e) => {
+                if (
+                  e.key === 'Enter' &&
+                  name.trim()
+                ) {
+                  next()
+                }
+              }}
               placeholder="Enter your name"
               autoFocus
               className="w-full px-5 py-4 border-2 border-zinc-200 focus:border-violet-500 rounded-2xl text-base outline-none transition-colors"
             />
+
             <div className="flex gap-3">
+
               <button
                 onClick={() => setStep(0)}
                 className="flex-1 py-3.5 border border-zinc-200 text-zinc-600 font-medium rounded-2xl hover:bg-zinc-50 transition-colors"
               >
                 Back
               </button>
+
               <button
                 onClick={next}
                 disabled={!name.trim()}
@@ -170,132 +300,239 @@ export default function OnboardingFlow() {
               >
                 Continue
               </button>
+
             </div>
+
           </div>
         )}
 
-        {/* Step 2 — Language */}
+        {/* STEP 2 — Language */}
         {step === 2 && (
+
           <div className="flex flex-col gap-5">
+
             <div>
-              <h2 className="text-xl font-bold text-zinc-900">Choose your language</h2>
-              <p className="text-sm text-zinc-500 mt-1">Ace speaks your language.</p>
+
+              <h2 className="text-xl font-bold text-zinc-900">
+                Choose your language
+              </h2>
+
+              <p className="text-sm text-zinc-500 mt-1">
+                Ace speaks your language.
+              </p>
+
             </div>
+
             <div className="flex flex-col gap-2">
+
               {languages.map((lang) => (
+
                 <button
                   key={lang.code}
-                  onClick={() => setLanguage(lang.code)}
-                  className={`flex items-center gap-4 px-5 py-4 rounded-2xl border-2 text-left transition-all
-                    ${language === lang.code
-                      ? 'border-violet-500 bg-violet-50'
-                      : 'border-zinc-200 hover:border-violet-300'
-                    }`}
+                  onClick={() =>
+                    setLanguage(lang.code)
+                  }
+                  className={`
+                    flex items-center gap-4
+                    px-5 py-4 rounded-2xl
+                    border-2 text-left
+                    transition-all
+                    ${
+                      language === lang.code
+                        ? 'border-violet-500 bg-violet-50'
+                        : 'border-zinc-200 hover:border-violet-300'
+                    }
+                  `}
                 >
-                  <span className="text-2xl">{lang.flag}</span>
+
+                  <span className="text-2xl">
+                    {lang.flag}
+                  </span>
+
                   <div>
-                    <p className={`font-semibold text-sm ${language === lang.code ? 'text-violet-700' : 'text-zinc-800'}`}>
+
+                    <p
+                      className={`
+                        font-semibold text-sm
+                        ${
+                          language === lang.code
+                            ? 'text-violet-700'
+                            : 'text-zinc-800'
+                        }
+                      `}
+                    >
                       {lang.label}
                     </p>
-                    <p className="text-xs text-zinc-400">{lang.desc}</p>
+
+                    <p className="text-xs text-zinc-400">
+                      {lang.desc}
+                    </p>
+
                   </div>
-                  {language === lang.code && (
-                    <svg className="ml-auto" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" strokeWidth="2.5" strokeLinecap="round">
-                      <path d="M20 6L9 17l-5-5"/>
-                    </svg>
-                  )}
+
                 </button>
               ))}
+
             </div>
+
             <div className="flex gap-3">
+
               <button
                 onClick={() => setStep(1)}
-                className="flex-1 py-3.5 border border-zinc-200 text-zinc-600 font-medium rounded-2xl hover:bg-zinc-50 transition-colors"
+                className="flex-1 py-3.5 border border-zinc-200 text-zinc-600 font-medium rounded-2xl"
               >
                 Back
               </button>
+
               <button
                 onClick={next}
-                className="flex-1 py-3.5 bg-violet-600 hover:bg-violet-700 text-white font-medium rounded-2xl transition-colors"
+                className="flex-1 py-3.5 bg-violet-600 hover:bg-violet-700 text-white font-medium rounded-2xl"
               >
                 Continue
               </button>
+
             </div>
+
           </div>
         )}
 
-        {/* Step 3 — Use case */}
+        {/* STEP 3 — Use case */}
         {step === 3 && (
+
           <div className="flex flex-col gap-5">
+
             <div>
-              <h2 className="text-xl font-bold text-zinc-900">What will you use Ace for?</h2>
-              <p className="text-sm text-zinc-500 mt-1">Pick your primary use case.</p>
+
+              <h2 className="text-xl font-bold text-zinc-900">
+                What will you use Ace for?
+              </h2>
+
+              <p className="text-sm text-zinc-500 mt-1">
+                Pick your primary use case.
+              </p>
+
             </div>
+
             <div className="flex flex-col gap-2">
+
               {useCases.map((uc) => (
+
                 <button
                   key={uc.id}
-                  onClick={() => setSelectedUseCase(uc.id)}
-                  className={`flex items-center gap-4 px-5 py-4 rounded-2xl border-2 text-left transition-all
-                    ${selectedUseCase === uc.id
-                      ? 'border-violet-500 bg-violet-50'
-                      : 'border-zinc-200 hover:border-violet-300'
-                    }`}
+                  onClick={() =>
+                    setSelectedUseCase(uc.id)
+                  }
+                  className={`
+                    flex items-center gap-4
+                    px-5 py-4 rounded-2xl
+                    border-2 text-left
+                    transition-all
+                    ${
+                      selectedUseCase === uc.id
+                        ? 'border-violet-500 bg-violet-50'
+                        : 'border-zinc-200 hover:border-violet-300'
+                    }
+                  `}
                 >
-                  <span className="text-2xl">{uc.icon}</span>
+
+                  <span className="text-2xl">
+                    {uc.icon}
+                  </span>
+
                   <div>
-                    <p className={`font-semibold text-sm ${selectedUseCase === uc.id ? 'text-violet-700' : 'text-zinc-800'}`}>
+
+                    <p
+                      className={`
+                        font-semibold text-sm
+                        ${
+                          selectedUseCase === uc.id
+                            ? 'text-violet-700'
+                            : 'text-zinc-800'
+                        }
+                      `}
+                    >
                       {uc.label}
                     </p>
-                    <p className="text-xs text-zinc-400">{uc.desc}</p>
+
+                    <p className="text-xs text-zinc-400">
+                      {uc.desc}
+                    </p>
+
                   </div>
-                  {selectedUseCase === uc.id && (
-                    <svg className="ml-auto" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" strokeWidth="2.5" strokeLinecap="round">
-                      <path d="M20 6L9 17l-5-5"/>
-                    </svg>
-                  )}
+
                 </button>
               ))}
+
             </div>
+
             <div className="flex gap-3">
+
               <button
                 onClick={() => setStep(2)}
-                className="flex-1 py-3.5 border border-zinc-200 text-zinc-600 font-medium rounded-2xl hover:bg-zinc-50 transition-colors"
+                className="flex-1 py-3.5 border border-zinc-200 text-zinc-600 font-medium rounded-2xl"
               >
                 Back
               </button>
+
               <button
                 onClick={next}
                 disabled={!selectedUseCase}
-                className="flex-1 py-3.5 bg-violet-600 hover:bg-violet-700 disabled:opacity-40 text-white font-medium rounded-2xl transition-colors"
+                className="flex-1 py-3.5 bg-violet-600 hover:bg-violet-700 disabled:opacity-40 text-white font-medium rounded-2xl"
               >
                 Continue
               </button>
+
             </div>
+
           </div>
         )}
 
-        {/* Step 4 — Done */}
+        {/* STEP 4 — Done */}
         {step === 4 && (
+
           <div className="flex flex-col items-center gap-6 text-center">
+
             <div className="w-20 h-20 bg-green-100 rounded-3xl flex items-center justify-center">
-              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2.5" strokeLinecap="round">
-                <path d="M20 6L9 17l-5-5"/>
+
+              <svg
+                width="32"
+                height="32"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="#16a34a"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+              >
+                <path d="M20 6L9 17l-5-5" />
               </svg>
+
             </div>
+
             <div>
+
               <h2 className="text-2xl font-bold text-zinc-900">
-                You're all set{name ? `, ${name.split(' ')[0]}` : ''}!
+
+                You're all set
+                {name
+                  ? `, ${name.split(' ')[0]}`
+                  : ''
+                }!
+
               </h2>
+
               <p className="text-zinc-500 mt-2 leading-relaxed">
-                Ace is ready. Start with a conversation, explore the tools, or ask anything.
+                Ace is ready. Start with a conversation,
+                explore the tools, or ask anything.
               </p>
+
             </div>
+
             <button
               onClick={handleFinish}
               disabled={saving}
               className="w-full py-3.5 bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white font-medium rounded-2xl transition-colors flex items-center justify-center gap-2"
             >
+
               {saving ? (
                 <>
                   <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -304,10 +541,14 @@ export default function OnboardingFlow() {
               ) : (
                 'Start using Ace →'
               )}
+
             </button>
+
           </div>
         )}
+
       </div>
+
     </div>
   )
 }

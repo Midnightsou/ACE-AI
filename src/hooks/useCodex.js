@@ -1,5 +1,12 @@
-import { useState } from 'react'
-import { collection, addDoc, doc, updateDoc, serverTimestamp } from 'firebase/firestore'
+import { useState, useRef, useEffect } from 'react'
+import {
+  collection,
+  addDoc,
+  doc,
+  updateDoc,
+  serverTimestamp,
+} from 'firebase/firestore'
+
 import { db } from '../services/firebase'
 import { useCodexStore } from '../store/codexStore'
 import { useUserStore } from '../store/userStore'
@@ -10,6 +17,98 @@ import {
   streamCompletion,
   MODELS,
 } from '../services/deepseekClient'
+
+
+// ─────────────────────────────────────────────
+// Save Codex conversation in the background.
+// This NEVER blocks the AI response.
+// ─────────────────────────────────────────────
+async function saveCodexToFirebase({
+  uid,
+  sessionIdRef,
+  previewTitle,
+  userMessage,
+  assistantMessage,
+}) {
+  try {
+    let currentSessionId = sessionIdRef.current
+
+    // Create conversation only if this is a new session
+    if (!currentSessionId) {
+      const ref = await addDoc(
+        collection(db, 'students', uid, 'conversations'),
+        {
+          type: 'tool',
+          toolId: 'codex',
+          toolName: 'Codex',
+          icon: '💻',
+          title: previewTitle,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        }
+      )
+
+      currentSessionId = ref.id
+      sessionIdRef.current = currentSessionId
+    }
+
+    // Save user message
+    await addDoc(
+      collection(
+        db,
+        'students',
+        uid,
+        'conversations',
+        currentSessionId,
+        'messages'
+      ),
+      {
+        role: 'user',
+        content: userMessage.content,
+        createdAt: serverTimestamp(),
+      }
+    )
+
+    // Save assistant message
+    await addDoc(
+      collection(
+        db,
+        'students',
+        uid,
+        'conversations',
+        currentSessionId,
+        'messages'
+      ),
+      {
+        role: 'assistant',
+        content: assistantMessage.content,
+        createdAt: serverTimestamp(),
+      }
+    )
+
+    // Update conversation metadata
+    await updateDoc(
+      doc(
+        db,
+        'students',
+        uid,
+        'conversations',
+        currentSessionId
+      ),
+      {
+        updatedAt: serverTimestamp(),
+        title: previewTitle,
+      }
+    )
+
+    return currentSessionId
+
+  } catch (err) {
+    console.error('Background Codex Firebase save failed:', err)
+    throw err
+  }
+}
+
 
 export function useCodex() {
   const {
@@ -27,11 +126,20 @@ export function useCodex() {
   const [loading, setLoading] = useState(false)
   const [language, setLanguage] = useState('auto')
 
+  // Keep the session ID available to background Firebase operations
+  const sessionIdRef = useRef(sessionId || null)
+
+  useEffect(() => {
+    sessionIdRef.current = sessionId
+  }, [sessionId])
+
+
   async function loadSession(sid) {
     if (!user?.uid || !sid) return
 
     clearMessages()
     setSessionId(sid)
+    sessionIdRef.current = sid
 
     try {
       const msgs = await loadToolMessages(user.uid, sid)
@@ -41,6 +149,7 @@ export function useCodex() {
     }
   }
 
+
   async function send(text) {
     if (!text.trim() || loading) return
 
@@ -49,55 +158,29 @@ export function useCodex() {
       content: text,
     }
 
+    // Show user message immediately
     addMessage(userMessage)
 
     setLoading(true)
     setStreamingContent('')
 
+    const previewTitle =
+      `Codex — ${text.slice(0, 40)}${text.length > 40 ? '...' : ''}`
+
     try {
-      let currentSessionId = sessionId
-      const previewTitle = `Codex — ${text.slice(0, 40)}${
-        text.length > 40 ? '...' : ''
-      }`
+      // ─────────────────────────────────────────────
+      // Build history immediately.
+      // NO FIREBASE OPERATIONS BEFORE DEEPSEEK.
+      // ─────────────────────────────────────────────
 
-      if (!currentSessionId && user?.uid) {
-        const ref = await addDoc(
-          collection(db, 'students', user.uid, 'conversations'),
-          {
-            type: 'tool',
-            toolId: 'codex',
-            toolName: 'Codex',
-            icon: '💻',
-            title: previewTitle,
-            createdAt: serverTimestamp(),
-            updatedAt: serverTimestamp(),
-          }
-        )
+      const history = [
+        ...messages,
+        userMessage,
+      ]
 
-        currentSessionId = ref.id
-        setSessionId(currentSessionId)
-      }
-
-      if (user?.uid && currentSessionId) {
-        await addDoc(
-          collection(db, 'students', user.uid, 'conversations', currentSessionId, 'messages'),
-          {
-            role: 'user',
-            content: text,
-            createdAt: serverTimestamp(),
-          }
-        )
-
-        await updateDoc(
-          doc(db, 'students', user.uid, 'conversations', currentSessionId),
-          {
-            updatedAt: serverTimestamp(),
-            title: previewTitle,
-          }
-        )
-      }
-
-      const history = [...messages, userMessage]
+      // ─────────────────────────────────────────────
+      // CALL DEEPSEEK IMMEDIATELY
+      // ─────────────────────────────────────────────
 
       const fullContent = await streamCompletion({
         model: MODELS.chat,
@@ -122,6 +205,11 @@ export function useCodex() {
         },
       })
 
+
+      // ─────────────────────────────────────────────
+      // SHOW AI RESPONSE IMMEDIATELY
+      // ─────────────────────────────────────────────
+
       const assistantMessage = {
         role: 'assistant',
         content: fullContent,
@@ -131,25 +219,39 @@ export function useCodex() {
 
       setStreamingContent('')
 
-      if (user?.uid && currentSessionId) {
-        await addDoc(
-          collection(db, 'students', user.uid, 'conversations', currentSessionId, 'messages'),
-          {
-            role: 'assistant',
-            content: fullContent,
-            createdAt: serverTimestamp(),
-          }
-        )
 
-        await updateDoc(
-          doc(db, 'students', user.uid, 'conversations', currentSessionId),
-          {
-            updatedAt: serverTimestamp(),
-            title: previewTitle,
-          }
-        )
+      // ─────────────────────────────────────────────
+      // SAVE TO FIREBASE IN THE BACKGROUND
+      // AI DOES NOT WAIT FOR THIS
+      // ─────────────────────────────────────────────
+
+      const uid = user?.uid
+
+      if (uid) {
+        saveCodexToFirebase({
+          uid,
+          sessionIdRef,
+          previewTitle,
+          userMessage,
+          assistantMessage,
+        })
+          .then((savedSessionId) => {
+            if (savedSessionId) {
+              sessionIdRef.current = savedSessionId
+              setSessionId(savedSessionId)
+            }
+          })
+          .catch((err) => {
+            console.error(
+              'Failed to save Codex session:',
+              err
+            )
+          })
       }
+
     } catch (err) {
+      setStreamingContent('')
+
       addMessage({
         role: 'assistant',
         content:
@@ -157,16 +259,21 @@ export function useCodex() {
       })
 
       console.error('Codex error:', err)
+
     } finally {
       setLoading(false)
       setStreamingContent('')
     }
   }
 
+
   function startNewSession() {
     clearMessages()
+
     setSessionId(null)
+    sessionIdRef.current = null
   }
+
 
   return {
     messages,

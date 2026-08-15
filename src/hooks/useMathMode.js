@@ -1,4 +1,4 @@
-import { useRef, useEffect } from 'react'
+import { useState, useRef } from 'react'
 import {
   collection,
   addDoc,
@@ -19,95 +19,6 @@ import {
 } from '../services/deepseekClient'
 
 
-// Save Math conversation after the AI has responded.
-// This runs in the background and never blocks DeepSeek.
-async function saveMathToFirebase({
-  uid,
-  sessionIdRef,
-  previewTitle,
-  userMessage,
-  assistantMessage,
-}) {
-  try {
-    let currentSessionId = sessionIdRef.current
-
-    // Create a new Math conversation if necessary
-    if (!currentSessionId) {
-      const ref = await addDoc(
-        collection(db, 'students', uid, 'conversations'),
-        {
-          type: 'tool',
-          toolId: 'math',
-          toolName: 'Math Mode',
-          icon: '🧮',
-          title: previewTitle,
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
-        }
-      )
-
-      currentSessionId = ref.id
-      sessionIdRef.current = currentSessionId
-    }
-
-    // Save user message
-    await addDoc(
-      collection(
-        db,
-        'students',
-        uid,
-        'conversations',
-        currentSessionId,
-        'messages'
-      ),
-      {
-        role: 'user',
-        content: userMessage.content,
-        createdAt: serverTimestamp(),
-      }
-    )
-
-    // Save AI response
-    await addDoc(
-      collection(
-        db,
-        'students',
-        uid,
-        'conversations',
-        currentSessionId,
-        'messages'
-      ),
-      {
-        role: 'assistant',
-        content: assistantMessage.content,
-        createdAt: serverTimestamp(),
-      }
-    )
-
-    // Update conversation metadata
-    await updateDoc(
-      doc(
-        db,
-        'students',
-        uid,
-        'conversations',
-        currentSessionId
-      ),
-      {
-        updatedAt: serverTimestamp(),
-        title: previewTitle,
-      }
-    )
-
-    return currentSessionId
-
-  } catch (err) {
-    console.error('Background Math Firebase save failed:', err)
-    throw err
-  }
-}
-
-
 export function useMathMode() {
   const {
     messages,
@@ -123,13 +34,19 @@ export function useMathMode() {
 
   const user = useUserStore((s) => s.user)
 
-  // Keep session ID available to background Firebase saving
+  // Controls sending/loading state
+  const [loading, setLoading] = useState(false)
+
+  // Keeps the session ID available even while Firebase works
   const sessionIdRef = useRef(sessionId || null)
 
-  useEffect(() => {
-    sessionIdRef.current = sessionId
-  }, [sessionId])
+  // Keep ref synchronized with store
+  sessionIdRef.current = sessionId
 
+
+  // ─────────────────────────────────────────────
+  // LOAD EXISTING SESSION
+  // ─────────────────────────────────────────────
 
   async function loadSession(sid) {
     if (!user?.uid || !sid) return
@@ -141,138 +58,271 @@ export function useMathMode() {
 
     try {
       const msgs = await loadToolMessages(user.uid, sid)
+
       setMessages(msgs)
     } catch (err) {
-      console.error('Failed to load math session:', err)
+      console.error(
+        'Failed to load math session:',
+        err
+      )
     }
   }
 
 
+  // ─────────────────────────────────────────────
+  // SAVE TO FIREBASE IN BACKGROUND
+  // ─────────────────────────────────────────────
+
+  async function saveToFirebase(
+    uid,
+    title,
+    userMessage,
+    assistantContent
+  ) {
+    try {
+      let currentSessionId = sessionIdRef.current
+
+      // Create conversation if this is a new session
+      if (!currentSessionId) {
+        const ref = await addDoc(
+          collection(
+            db,
+            'students',
+            uid,
+            'conversations'
+          ),
+          {
+            type: 'tool',
+            toolId: 'math',
+            toolName: 'Math Mode',
+            icon: '🧮',
+            title,
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+          }
+        )
+
+        currentSessionId = ref.id
+
+        sessionIdRef.current = currentSessionId
+
+        setSessionId(currentSessionId)
+      }
+
+
+      // Save user message
+      await addDoc(
+        collection(
+          db,
+          'students',
+          uid,
+          'conversations',
+          currentSessionId,
+          'messages'
+        ),
+        {
+          role: 'user',
+          content: userMessage.content,
+          createdAt: serverTimestamp(),
+        }
+      )
+
+
+      // Save AI message
+      await addDoc(
+        collection(
+          db,
+          'students',
+          uid,
+          'conversations',
+          currentSessionId,
+          'messages'
+        ),
+        {
+          role: 'assistant',
+          content: assistantContent,
+          createdAt: serverTimestamp(),
+        }
+      )
+
+
+      // Update conversation
+      await updateDoc(
+        doc(
+          db,
+          'students',
+          uid,
+          'conversations',
+          currentSessionId
+        ),
+        {
+          updatedAt: serverTimestamp(),
+          title,
+        }
+      )
+
+    } catch (err) {
+      console.error(
+        'Background Math Firebase save failed:',
+        err
+      )
+    }
+  }
+
+
+  // ─────────────────────────────────────────────
+  // SEND MESSAGE
+  // ─────────────────────────────────────────────
+
   async function send(text) {
-    if (!text.trim()) return
+    if (!text.trim() || loading) return
+
 
     const userMessage = {
       role: 'user',
       content: text,
     }
 
-    // Show the user's message immediately
+
+    // Show user message immediately
     addMessage(userMessage)
+
+    setLoading(true)
 
     setStreamingContent('')
 
-    const previewTitle =
-      `Math — ${text.slice(0, 40)}${text.length > 40 ? '...' : ''}`
 
     try {
-      // Build conversation history.
-      // No Firebase calls before DeepSeek.
+      const previewTitle =
+        `Math — ${text.slice(0, 40)}${
+          text.length > 40
+            ? '...'
+            : ''
+        }`
+
+
+      // Build conversation history
       const history = [
-        ...messages,
+        ...messages.slice(-10),
         userMessage,
       ]
 
 
-      // ───────────────────────────────────────
+      // ─────────────────────────────────────────
       // CALL DEEPSEEK IMMEDIATELY
-      // ───────────────────────────────────────
+      // FIREBASE DOES NOT BLOCK THIS
+      // ─────────────────────────────────────────
 
-      const fullContent = await streamCompletion({
-        model: MODELS.reasoner,
+      const fullContent =
+        await streamCompletion({
+          model: MODELS.reasoner,
 
-        messages: [
-          {
-            role: 'system',
-            content: buildMathSystemPrompt(),
+          messages: [
+            {
+              role: 'system',
+              content: buildMathSystemPrompt(),
+            },
+
+            ...history.map((m) => ({
+              role: m.role,
+              content: m.content,
+            })),
+          ],
+
+          temperature: 0.1,
+
+          maxTokens: 4096,
+
+          onChunk: (content) => {
+            setStreamingContent(content)
           },
-
-          ...history.map((m) => ({
-            role: m.role,
-            content: m.content,
-          })),
-        ],
-
-        temperature: 0.1,
-        maxTokens: 4096,
-
-        onChunk: (content) => {
-          setStreamingContent(content)
-        },
-      })
+        })
 
 
-      // Show AI response immediately
+      // ─────────────────────────────────────────
+      // SHOW AI RESPONSE IMMEDIATELY
+      // ─────────────────────────────────────────
+
       const assistantMessage = {
         role: 'assistant',
         content: fullContent,
       }
+
 
       addMessage(assistantMessage)
 
       setStreamingContent('')
 
 
-      // ───────────────────────────────────────
+      // ─────────────────────────────────────────
       // SAVE TO FIREBASE IN BACKGROUND
-      // ───────────────────────────────────────
+      // DOES NOT BLOCK THE USER
+      // ─────────────────────────────────────────
 
       const uid = user?.uid
 
       if (uid) {
-        saveMathToFirebase({
+        saveToFirebase(
           uid,
-          sessionIdRef,
           previewTitle,
           userMessage,
-          assistantMessage,
-        })
-          .then((savedSessionId) => {
-            if (savedSessionId) {
-              sessionIdRef.current = savedSessionId
-              setSessionId(savedSessionId)
-            }
-          })
-          .catch((err) => {
-            console.error(
-              'Failed to save Math session:',
-              err
-            )
-          })
+          fullContent
+        )
       }
+
 
     } catch (err) {
       setStreamingContent('')
 
       addMessage({
         role: 'assistant',
+
         content:
           'Something went wrong. Check your connection and try again.',
       })
 
-      console.error('Math mode error:', err)
+      console.error(
+        'Math mode error:',
+        err
+      )
 
     } finally {
+
+      setLoading(false)
+
       setStreamingContent('')
     }
   }
 
 
+  // ─────────────────────────────────────────────
+  // START NEW SESSION
+  // ─────────────────────────────────────────────
+
   function startNewSession() {
     clearMessages()
 
     setSessionId(null)
+
     sessionIdRef.current = null
+
+    setStreamingContent('')
   }
 
 
   return {
     messages,
+
     streamingContent,
+
     loading,
 
     send,
+
     clearMessages,
+
     startNewSession,
+
     loadSession,
   }
 }

@@ -24,7 +24,7 @@ export default async function handler(req) {
 
   const apiKey = process.env.DEEPSEEK_API_KEY
 
-  if (!apiKey) {
+  if (!apiKey) {  
     return new Response(
       JSON.stringify({ error: 'API key not configured' }),
       {

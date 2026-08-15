@@ -2,56 +2,37 @@ import { useState, useRef } from 'react'
 import { useChatStore } from '../store/chatStore'
 import { useConversationStore } from '../store/conversationStore'
 import { useUserStore } from '../store/userStore'
-import { complete, streamCompletion, MODELS } from '../services/deepseekClient'
+import { streamCompletion, complete, MODELS } from '../services/deepseekClient'
 import { buildSystemPrompt } from '../prompts/systemPrompt'
 import {
   createConversation,
   saveMessage,
-  loadMessages,
   loadConversations,
   incrementMessageCount,
-  updateConversationTitle,
 } from '../services/memory'
-import {
-  searchWeb,
-  needsWebSearch,
-  extractSearchQuery,
-  buildSearchContext,
-} from '../services/webSearch'
+import { searchWeb, needsWebSearch, buildSearchContext, extractSearchQuery } from '../services/webSearch'
 import { fetchURLContent } from '../services/urlFetcher'
 import { canUseFeature } from '../config/pricing'
 
-// Rough token estimate — 1 token ≈ 4 characters
-function estimateTokens(text) {
-  return Math.ceil(text.length / 4)
-}
-
-const MAX_INPUT_TOKENS = 3000 // safe limit for user message
-
-async function generateTitle(messages) {
+// Fire-and-forget Firebase save — never blocks the AI
+async function saveToFirebase(uid, convIdRef, title, userMessage, assistantContent, setConversations) {
   try {
-    const context = messages
-      .slice(0, 4)
-      .map((m) => `${m.role === 'user' ? 'User' : 'AI'}: ${m.content.slice(0, 100)}`)
-      .join('\n')
+    let convId = convIdRef.current
 
-    const title = await complete({
-      model: MODELS.chat,
-      messages: [{
-        role: 'user',
-        content: `Generate a 4-word title for this conversation. Return ONLY the title — no punctuation, no quotes, no explanation.
+    if (!convId) {
+      convId = await createConversation(uid, title)
+      convIdRef.current = convId
+    }
 
-${context}
+    await saveMessage(uid, convId, userMessage)
+    await saveMessage(uid, convId, { role: 'assistant', content: assistantContent })
+    await incrementMessageCount(uid)
 
-4-word title:`,
-      }],
-      temperature: 0.3,
-      maxTokens: 20,
-    })
-
-    return title.trim().replace(/["'.]/g, '').slice(0, 50)
-  } catch {
-    return null
+    // Refresh sidebar in background
+    loadConversations(uid).then(setConversations).catch(() => {})
+  } catch (err) {
+    console.error('Background Firebase save failed:', err)
+    // AI already responded — user is not affected
   }
 }
 
@@ -59,47 +40,48 @@ export function useChat() {
   const {
     messages, streamingContent, loading,
     addMessage, setStreamingContent, setLoading,
-    clearMessages, truncateFrom,
-    setRestoredConvId,
+    clearMessages, truncateFrom, setRestoredConvId,
   } = useChatStore()
 
   const {
-    activeConversationId,
-    setActiveConversationId, setConversations,
-    bringToTop,
+    activeConversationId, setActiveConversationId,
+    setConversations, bringToTop,
   } = useConversationStore()
 
   const user = useUserStore((s) => s.user)
   const [fileContext, setFileContext] = useState(null)
-  const [searchCitations, setSearchCitations] = useState([])
   const [isSearching, setIsSearching] = useState(false)
-  const [loadingConversation, setLoadingConversation] = useState(false)
   const abortRef = useRef(null)
+  const convIdRef = useRef(activeConversationId || null)
+
+  // Keep ref in sync with store
+  convIdRef.current = activeConversationId
 
   async function send(text) {
     if (!text.trim() || loading) return
-
-    // Check if message is too long
-    const estimatedTokens = estimateTokens(text)
-    if (estimatedTokens > MAX_INPUT_TOKENS) {
-      addMessage({ role: 'user', content: text })
-      addMessage({
-        role: 'assistant',
-        content: `Your message is too long to process (approximately ${estimatedTokens} tokens). Please try breaking it into smaller parts — for example, ask one question at a time, or paste a shorter section of text. If you need to analyse a long document, use Dojo mode which is built for that.`,
-      })
-      return
-    }
 
     // Abort any in-flight request
     if (abortRef.current) abortRef.current.abort()
     abortRef.current = new AbortController()
 
+    // Check message limit
     const profile = user?.profile
     const allowed = canUseFeature(profile, 'message', profile?.dailyMessageCount || 0)
     if (!allowed) {
       addMessage({
         role: 'assistant',
-        content: 'You have used all your free messages today. Upgrade to Pro for 200 messages per day. Go to Profile to upgrade.',
+        content: 'You have used all your free messages for today. Upgrade to Pro for 200 messages per day — go to Profile to upgrade.',
+      })
+      return
+    }
+
+    // Check message length
+    const estimatedTokens = Math.ceil(text.length / 4)
+    if (estimatedTokens > 3000) {
+      addMessage({ role: 'user', content: text })
+      addMessage({
+        role: 'assistant',
+        content: `Your message is too long (around ${estimatedTokens} tokens). Please split it into smaller parts, or use Dojo mode if you want to analyse a large document.`,
       })
       return
     }
@@ -108,23 +90,12 @@ export function useChat() {
     addMessage(userMessage)
     setLoading(true)
     setStreamingContent('')
-    setSearchCitations([])
 
     try {
-      let convId = activeConversationId
-
-      if (!convId) {
-        const title = text.slice(0, 50) + (text.length > 50 ? '...' : '')
-        convId = await createConversation(user.uid, title)
-        setActiveConversationId(convId)
-        const updated = await loadConversations(user.uid)
-        setConversations(updated)
-      }
-
-      await saveMessage(user.uid, convId, userMessage)
-
-      // ── Step 1: Check for URLs in message ────────────────
+      // ── Step 1: Enrich message ──────────────────────
       let enrichedText = text
+
+      // Fetch URL content if message contains URLs
       const urlMatches = text.match(/https?:\/\/[^\s]+/g)
       if (urlMatches?.length) {
         try {
@@ -135,56 +106,49 @@ export function useChat() {
             })
           )
           enrichedText += '\n\n' + fetched.join('\n\n')
-        } catch {
-          // silently fail
-        }
+        } catch { }
       }
 
-      // ── Step 2: Web search if needed ──────────────────────
+      // File context
+      if (fileContext?.content) {
+        enrichedText += `\n\n[Uploaded file: ${fileContext.name}]\n${fileContext.content.slice(0, 8000)}`
+      }
+
+      // ── Step 2: Web search if needed ─────────────────
       let searchSystemContext = ''
-      let citations = []
 
       if (needsWebSearch(text)) {
         setIsSearching(true)
         try {
-          const cleanedQuery = extractSearchQuery(text)
-          const results = await searchWeb(cleanedQuery)
+          const query = extractSearchQuery(text)
+          const results = await searchWeb(query)
           if (results?.length) {
-            const { systemContext, citations: cites } = buildSearchContext(results)
+            const { systemContext } = buildSearchContext(results)
             searchSystemContext = systemContext
-            citations = cites
-            setSearchCitations(cites)
           }
-        } catch {
-          // silently fail
-        }
+        } catch { }
         setIsSearching(false)
       }
 
-      // ── Step 3: Build system prompt ───────────────────────
+      // ── Step 3: Build prompt ──────────────────────────
       const basePrompt = buildSystemPrompt(profile, messages)
       const fullSystemPrompt = searchSystemContext
         ? basePrompt + '\n\n' + searchSystemContext
         : basePrompt
-
-      // ── Step 4: Build messages for AI ─────────────────────
-      const fileContextText = fileContext?.content
-        ? `\n\n[Uploaded file: ${fileContext.name}]\n${fileContext.content.slice(0, 8000)}`
-        : ''
 
       const historyMessages = [
         ...messages.slice(-10).map((m) => ({
           role: m.role,
           content: m.content,
         })),
-        {
-          role: 'user',
-          content: enrichedText + fileContextText,
-        },
+        { role: 'user', content: enrichedText },
       ]
 
-      // ── Step 5: Stream response ───────────────────────────
-      const fullContent = await streamCompletion({
+      // ── Step 4: Call DeepSeek IMMEDIATELY ────────────
+      // Firebase is NOT involved here — pure AI call
+      let fullContent = ''
+
+      fullContent = await streamCompletion({
         model: MODELS.chat,
         messages: [
           { role: 'system', content: fullSystemPrompt },
@@ -196,40 +160,37 @@ export function useChat() {
         signal: abortRef.current.signal,
       })
 
-      // ── Step 6: Append citation list to response ──────────
-      let finalContent = fullContent
-
-      if (citations.length > 0) {
-        const usedCitations = citations.filter((c) =>
-          fullContent.includes(`[Source ${c.index}]`)
-        )
-        if (usedCitations.length > 0) {
-          finalContent += '\n\n━━━ Sources ━━━\n' +
-            usedCitations.map((c) =>
-              `[Source ${c.index}] ${c.title}\n${c.url}`
-            ).join('\n\n')
-        }
-      }
-
-      const assistantMessage = { role: 'assistant', content: finalContent }
+      // ── Step 5: Show response immediately ────────────
+      const assistantMessage = { role: 'assistant', content: fullContent }
       addMessage(assistantMessage)
       setStreamingContent('')
 
-      await saveMessage(user.uid, convId, assistantMessage)
-      await incrementMessageCount(user.uid)
-      bringToTop(convId)
+      // ── Step 6: Save to Firebase in background ───────
+      // User already sees the response — Firebase runs async
+      const title = text.slice(0, 50) + (text.length > 50 ? '...' : '')
+      const uid = user?.uid
 
-      // ── Step 7: Auto-title after 2nd exchange (4 messages = 2 user + 2 assistant) ──
-      const updatedMessages = [...messages, userMessage, { role: 'assistant', content: finalContent }]
-      if (updatedMessages.length === 4 && convId && user?.uid) {
-        generateTitle(updatedMessages).then(async (title) => {
-          if (title) {
-            await updateConversationTitle(user.uid, convId, title)
-            // Refresh conversations in sidebar
-            const updated = await loadConversations(user.uid)
-            setConversations(updated)
+      if (uid) {
+        saveToFirebase(
+          uid,
+          convIdRef,
+          title,
+          userMessage,
+          fullContent,
+          setConversations,
+        ).then(() => {
+          // Update active conversation ID after save
+          if (convIdRef.current) {
+            setActiveConversationId(convIdRef.current)
+            bringToTop(convIdRef.current)
           }
-        }).catch(() => {}) // silently fail — title isn't critical
+        })
+      }
+
+      // Auto-generate title after 2nd exchange
+      const updatedMessages = [...messages, userMessage, assistantMessage]
+      if (updatedMessages.length === 4 && uid && convIdRef.current) {
+        generateTitle(updatedMessages, uid, convIdRef.current, setConversations)
       }
 
     } catch (err) {
@@ -247,22 +208,46 @@ export function useChat() {
     }
   }
 
+  // Generate title silently after 2 exchanges
+  async function generateTitle(msgs, uid, convId, setConvs) {
+    try {
+      const context = msgs
+        .slice(0, 4)
+        .map((m) => `${m.role === 'user' ? 'User' : 'AI'}: ${m.content.slice(0, 100)}`)
+        .join('\n')
+
+      const title = await complete({
+        model: MODELS.chat,
+        messages: [{
+          role: 'user',
+          content: `Generate a 4-word title for this conversation. Return ONLY the title, no punctuation, no quotes.\n\n${context}`,
+        }],
+        temperature: 0.3,
+        maxTokens: 20,
+      })
+
+      const cleanTitle = title.trim().replace(/["'.]/g, '').slice(0, 50)
+      if (cleanTitle && uid && convId) {
+        const { updateConversationTitle } = await import('../services/memory')
+        await updateConversationTitle(uid, convId, cleanTitle)
+        const { loadConversations } = await import('../services/memory')
+        loadConversations(uid).then(setConvs).catch(() => {})
+      }
+    } catch { }
+  }
+
   async function loadConversation(convId) {
     if (!convId || !user?.uid) return
-
-    // Always load — don't skip even if same ID
-    // The sidebar already handles not re-clicking active ones
-    setLoadingConversation(true)
     try {
+      const { loadMessages } = await import('../services/memory')
       const msgs = await loadMessages(user.uid, convId)
       clearMessages()
       msgs.forEach((m) => addMessage(m))
       setActiveConversationId(convId)
+      convIdRef.current = convId
       setRestoredConvId(convId)
     } catch (err) {
       console.error('Load conversation error:', err)
-    } finally {
-      setLoadingConversation(false)
     }
   }
 
@@ -270,9 +255,8 @@ export function useChat() {
     if (abortRef.current) abortRef.current.abort()
     clearMessages()
     setActiveConversationId(null)
-    setSearchCitations([])
+    convIdRef.current = null
     setFileContext(null)
-    setLoadingConversation(false)
   }
 
   function handleEdit(index, newContent) {
@@ -283,7 +267,7 @@ export function useChat() {
   return {
     messages, streamingContent, loading,
     fileContext, setFileContext,
-    searchCitations, isSearching, loadingConversation,
+    isSearching,
     send, loadConversation, startNewChat, handleEdit,
   }
 }

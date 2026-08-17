@@ -9,7 +9,6 @@ import {
   query,
   orderBy,
   limit,
-  where,
   serverTimestamp,
   increment,
 } from 'firebase/firestore'
@@ -241,33 +240,30 @@ export async function updateStreak(uid) {
     lastStreakDate: today,
   })
 }
+
 // dojo session saving
-export async function saveDojoSession(uid, data) {
+export async function saveDojoSession(uid, sessionId, data) {
   const ref = collection(db, 'students', uid, 'conversations')
-  
-  // Find existing dojo session or create new one
-  const existing = await getDocs(
-    query(ref, where('toolId', '==', 'dojo'), orderBy('updatedAt', 'desc'), limit(1))
-  )
 
   const safeData = {
     generatedContent: data.generatedContent || {},
     sourceMetadata: data.sourceMetadata || [],
-    // Truncate any large generated content
+
     ...Object.fromEntries(
-      Object.entries(data.generatedContent || {}).map(([k, v]) => [
-        k, v.length > 5000 ? v.slice(0, 5000) + '\n[truncated]' : v
+      Object.entries(data.generatedContent || {}).map(([key, value]) => [
+        key,
+        typeof value === 'string' && value.length > 5000
+          ? value.slice(0, 5000) + '\n[truncated]'
+          : value,
       ])
     ),
   }
 
-  if (!existing.empty) {
-    await updateDoc(existing.docs[0].ref, {
-      savedState: JSON.stringify(safeData),
-      updatedAt: serverTimestamp(),
-    })
-  } else {
-    await addDoc(ref, {
+  let currentSessionId = sessionId
+
+  // Create a Dojo session if one doesn't exist yet
+  if (!currentSessionId) {
+    const newDoc = await addDoc(ref, {
       type: 'tool',
       toolId: 'dojo',
       toolName: 'Dojo',
@@ -277,6 +273,19 @@ export async function saveDojoSession(uid, data) {
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     })
-    invalidateConversationCache(uid)
+
+    currentSessionId = newDoc.id
+  } else {
+    await updateDoc(
+      doc(db, 'students', uid, 'conversations', currentSessionId),
+      {
+        savedState: JSON.stringify(safeData),
+        updatedAt: serverTimestamp(),
+      }
+    )
   }
+
+  invalidateConversationCache(uid)
+
+  return currentSessionId
 }

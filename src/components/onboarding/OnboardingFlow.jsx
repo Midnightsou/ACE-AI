@@ -63,53 +63,55 @@ export default function OnboardingFlow() {
   const [selectedUseCase, setSelectedUseCase] = useState('')
   const [saving, setSaving] = useState(false)
 
-  function updateLocalUser(updates) {
-    if (!user) return
-
-    setUser({
-      ...user,
-      profile: {
-        ...user?.profile,
-        ...updates,
-      },
-    })
-  }
-
   async function handleFinish() {
     if (saving || !user?.uid) return
 
     setSaving(true)
 
+    const updates = {
+      name: name.trim(),
+      language,
+      useCase: selectedUseCase,
+      onboarded: true,
+    }
+
     try {
-      const updates = {
-        name: name.trim(),
-        language,
-        useCase: selectedUseCase,
-        onboarded: true,
-      }
-
-      // Permanent account-level onboarding status.
-      // Firestore is the source of truth — save first.
-      await updateProfile(user.uid, updates)
-
-      // Only cache after Firestore succeeds.
-      sessionStorage.setItem(
-        `onboarded_${user.uid}`,
-        'true'
+      // Save permanently to Firestore
+      await updateProfile(
+        user.uid,
+        updates
       )
 
-      // Update current app state.
-      updateLocalUser(updates)
-
-      navigate('/chat', {
-        replace: true,
+      // Update Zustand immediately
+      setUser({
+        ...user,
+        profile: {
+          ...user.profile,
+          ...updates,
+        },
       })
-    } catch (err) {
-      console.error('Onboarding save error:', err)
 
-      // Stay on onboarding.
-      // Do NOT mark the account as onboarded locally
-      // if Firestore did not save it.
+      navigate(
+        '/chat',
+        {
+          replace: true,
+        }
+      )
+
+    } catch (err) {
+      console.error(
+        'Onboarding save error:',
+        err
+      )
+
+      // IMPORTANT:
+      // Do not silently mark onboarding as complete
+      // if Firestore failed.
+
+      alert(
+        'We could not save your setup. Please check your internet connection and try again.'
+      )
+
     } finally {
       setSaving(false)
     }
@@ -125,27 +127,36 @@ export default function OnboardingFlow() {
         onboarded: true,
       }
 
-      // Save permanently first.
-      await updateProfile(user.uid, updates)
-
-      // Then cache for this session.
-      sessionStorage.setItem(
-        `onboarded_${user.uid}`,
-        'true'
+      await updateProfile(
+        user.uid,
+        updates
       )
 
-      // Update current state.
-      updateLocalUser(updates)
-
-      navigate('/chat', {
-        replace: true,
+      setUser({
+        ...user,
+        profile: {
+          ...user.profile,
+          ...updates,
+        },
       })
-    } catch (err) {
-      console.error('Skip onboarding error:', err)
 
-      // Stay on onboarding.
-      // Do NOT mark the account as onboarded locally
-      // if Firestore did not save it.
+      navigate(
+        '/chat',
+        {
+          replace: true,
+        }
+      )
+
+    } catch (err) {
+      console.error(
+        'Skip onboarding error:',
+        err
+      )
+
+      alert(
+        'We could not save your preference. Please try again.'
+      )
+
     } finally {
       setSaving(false)
     }

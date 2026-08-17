@@ -15,6 +15,7 @@ import { buildDojoChatPrompt } from '../prompts/tools/dojoPrompt'
 import {
   loadToolMessages,
   saveDojoSession,
+  invalidateConversationCache,
 } from '../services/memory'
 
 import {
@@ -103,6 +104,8 @@ async function saveDojoChatToFirebase({
         title: previewTitle,
       }
     )
+
+    invalidateConversationCache(uid)
 
     return currentSessionId
 
@@ -390,18 +393,31 @@ export function useDojo() {
         const store =
           useDojoStore.getState()
 
-        saveDojoSession(uid, {
-          generatedContent:
-            store.generatedContent,
+        saveDojoSession(
+          uid,
+          sessionIdRef.current,
+          {
+            generatedContent:
+              store.generatedContent,
 
-          sourceMetadata:
-            store.getSourceMetadata(),
-        }).catch((err) => {
-          console.error(
-            'Failed to save Dojo content:',
-            err
-          )
-        })
+            sourceMetadata:
+              store.getSourceMetadata(),
+          }
+        )
+          .then((savedSessionId) => {
+            if (savedSessionId) {
+              sessionIdRef.current =
+                savedSessionId
+
+              setSessionId(savedSessionId)
+            }
+          })
+          .catch((err) => {
+            console.error(
+              'Failed to save Dojo content:',
+              err
+            )
+          })
       }
 
     } catch (err) {

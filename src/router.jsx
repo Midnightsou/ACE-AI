@@ -1,20 +1,58 @@
-import { lazy, Suspense, useState, useEffect } from 'react'
-import { Routes, Route, Navigate } from 'react-router-dom'
-import { useAuth } from './hooks/useAuth'
+import {
+  lazy,
+  Suspense,
+} from 'react'
+
+import {
+  Routes,
+  Route,
+  Navigate,
+  useLocation,
+} from 'react-router-dom'
+
 import { useUserStore } from './store/userStore'
 
-// Always loaded — critical path
 import LoginPage from './pages/LoginPage'
 import SignupPage from './pages/SignupPage'
 
-// Lazy loaded — only when needed
-const ChatPage = lazy(() => import('./pages/ChatPage'))
-const ToolsPage = lazy(() => import('./pages/ToolsPage'))
-const ProfilePage = lazy(() => import('./pages/ProfilePage'))
-const PricingPage = lazy(() => import('./pages/PricingPage'))
-const OnboardingFlow = lazy(() => import('./components/onboarding/OnboardingFlow'))
-const ToolPage = lazy(() => import('./pages/ToolPage'))
-const SharedConversationPage = lazy(() => import('./pages/SharedConversationPage'))
+const ChatPage =
+  lazy(() =>
+    import('./pages/ChatPage')
+  )
+
+const ToolsPage =
+  lazy(() =>
+    import('./pages/ToolsPage')
+  )
+
+const ProfilePage =
+  lazy(() =>
+    import('./pages/ProfilePage')
+  )
+
+const PricingPage =
+  lazy(() =>
+    import('./pages/PricingPage')
+  )
+
+const OnboardingFlow =
+  lazy(() =>
+    import(
+      './components/onboarding/OnboardingFlow'
+    )
+  )
+
+const ToolPage =
+  lazy(() =>
+    import('./pages/ToolPage')
+  )
+
+const SharedConversationPage =
+  lazy(() =>
+    import(
+      './pages/SharedConversationPage'
+    )
+  )
 
 function Spinner() {
   return (
@@ -25,36 +63,78 @@ function Spinner() {
 }
 
 function ProtectedRoute({ children }) {
-  const { user, loading } = useAuth()
-  const userStoreUser = useUserStore((s) => s.user)
-  const activeUser = userStoreUser || user
-  const [timedOut, setTimedOut] = useState(false)
+  const user =
+    useUserStore(
+      (s) => s.user
+    )
 
-  // Hard timeout — never show spinner for more than 6 seconds
-  useEffect(() => {
-    const t = setTimeout(() => setTimedOut(true), 6000)
-    return () => clearTimeout(t)
-  }, [])
+  const loading =
+    useUserStore(
+      (s) => s.loading
+    )
 
-  // Still loading but not timed out — show spinner
-  if (loading && !timedOut) return <Spinner />
+  const location =
+    useLocation()
 
-  // Timed out or not loading — proceed with whatever we have
-  if (!activeUser) return <Navigate to="/login" replace />
-
-  const isOnboarding = window.location.pathname === '/onboarding'
-
-  // Check live profile AND sessionStorage cache
-  const cachedOnboarded = sessionStorage.getItem(`onboarded_${activeUser.uid}`) === 'true'
-  const profileOnboarded = activeUser.profile?.onboarded === true
-  const isOnboarded = profileOnboarded || cachedOnboarded
-
-  if (!isOnboarded && !isOnboarding) {
-    return <Navigate to="/onboarding" replace />
+  if (loading) {
+    return <Spinner />
   }
 
-  if (isOnboarded && isOnboarding) {
-    return <Navigate to="/chat" replace />
+  // Not logged in
+  if (!user) {
+    return (
+      <Navigate
+        to="/login"
+        replace
+      />
+    )
+  }
+
+  /*
+   If Firestore temporarily fails but the user
+   is authenticated, don't immediately force them
+   into onboarding.
+
+   The app can retry profile loading on the next
+   refresh instead of creating an onboarding loop.
+  */
+
+  if (!user.profile) {
+    return children
+  }
+
+  const isOnboardingRoute =
+    location.pathname ===
+    '/onboarding'
+
+  const isOnboarded =
+    user.profile.onboarded ===
+    true
+
+  // Account has NOT completed onboarding
+  if (
+    !isOnboarded &&
+    !isOnboardingRoute
+  ) {
+    return (
+      <Navigate
+        to="/onboarding"
+        replace
+      />
+    )
+  }
+
+  // Account has ALREADY completed onboarding
+  if (
+    isOnboarded &&
+    isOnboardingRoute
+  ) {
+    return (
+      <Navigate
+        to="/chat"
+        replace
+      />
+    )
   }
 
   return children
@@ -62,18 +142,96 @@ function ProtectedRoute({ children }) {
 
 export default function AppRouter() {
   return (
-    <Suspense fallback={<Spinner />}>
+    <Suspense
+      fallback={<Spinner />}
+    >
       <Routes>
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/signup" element={<SignupPage />} />
-        <Route path="/onboarding" element={<ProtectedRoute><OnboardingFlow /></ProtectedRoute>} />
-        <Route path="/chat" element={<ProtectedRoute><ChatPage /></ProtectedRoute>} />
-        <Route path="/tools" element={<ProtectedRoute><ToolsPage /></ProtectedRoute>} />
-        <Route path="/tool/:toolId" element={<ProtectedRoute><ToolPage /></ProtectedRoute>} />
-        <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
-        <Route path="/pricing" element={<ProtectedRoute><PricingPage /></ProtectedRoute>} />
-        <Route path="/share/:shareId" element={<SharedConversationPage />} />
-        <Route path="*" element={<Navigate to="/chat" replace />} />
+
+        <Route
+          path="/login"
+          element={
+            <LoginPage />
+          }
+        />
+
+        <Route
+          path="/signup"
+          element={
+            <SignupPage />
+          }
+        />
+
+        <Route
+          path="/onboarding"
+          element={
+            <ProtectedRoute>
+              <OnboardingFlow />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/chat"
+          element={
+            <ProtectedRoute>
+              <ChatPage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/tools"
+          element={
+            <ProtectedRoute>
+              <ToolsPage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/tool/:toolId"
+          element={
+            <ProtectedRoute>
+              <ToolPage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/profile"
+          element={
+            <ProtectedRoute>
+              <ProfilePage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/pricing"
+          element={
+            <ProtectedRoute>
+              <PricingPage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/share/:shareId"
+          element={
+            <SharedConversationPage />
+          }
+        />
+
+        <Route
+          path="*"
+          element={
+            <Navigate
+              to="/chat"
+              replace
+            />
+          }
+        />
+
       </Routes>
     </Suspense>
   )

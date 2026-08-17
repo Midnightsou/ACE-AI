@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { useAuth } from './hooks/useAuth'
+import { useState } from 'react'
 import { useUserStore } from './store/userStore'
 import { useChatStore } from './store/chatStore'
 import { useConversationStore } from './store/conversationStore'
@@ -10,15 +10,14 @@ import { useEmailStore } from './store/emailStore'
 import { useCodexStore } from './store/codexStore'
 import { useMathStore } from './store/mathStore'
 import { useDojoStore } from './store/dojoStore'
+import { useThemeStore } from './store/themeStore'
+import AuthProvider from './components/AuthProvider'
 import AppRouter from './router'
 import SplashScreen from './components/SplashScreen'
-import { useState } from 'react'
-import { useThemeStore } from './store/themeStore'
 import NetworkBanner from './components/ui/NetworkBanner'
 
 export default function App() {
-  const { user } = useAuth()
-  const setUser = useUserStore((s) => s.setUser)
+  const user = useUserStore((s) => s.user)
   const theme = useThemeStore((s) => s.theme)
   const clearMessages = useChatStore((s) => s.clearMessages)
   const clearConversations = useConversationStore((s) => s.clearConversations)
@@ -36,8 +35,6 @@ export default function App() {
   })
 
   useEffect(() => {
-    setUser(user)
-
     // Clear ALL stores when user changes — prevents data leaking between accounts
     clearMessages()
     clearConversations()
@@ -68,7 +65,9 @@ export default function App() {
   return (
     <>
       <NetworkBanner />
-      <AppRouter />
+      <AuthProvider>
+        <AppRouter />
+      </AuthProvider>
     </>
   )
 }

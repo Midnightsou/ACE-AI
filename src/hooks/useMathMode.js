@@ -11,7 +11,10 @@ import { db } from '../services/firebase'
 import { useMathStore } from '../store/mathStore'
 import { useUserStore } from '../store/userStore'
 import { buildMathSystemPrompt } from '../prompts/tools/mathPrompt'
-import { loadToolMessages } from '../services/memory'
+import {
+  loadToolMessages,
+  invalidateConversationCache,
+} from '../services/memory'
 
 import {
   streamCompletion,
@@ -24,7 +27,6 @@ export function useMathMode() {
     messages,
     sessionId,
     streamingContent,
-
     addMessage,
     setMessages,
     setStreamingContent,
@@ -34,13 +36,12 @@ export function useMathMode() {
 
   const user = useUserStore((s) => s.user)
 
-  // Controls sending/loading state
   const [loading, setLoading] = useState(false)
 
-  // Keeps the session ID available even while Firebase works
+  // Keeps track of the session even while React/Firebase updates
   const sessionIdRef = useRef(sessionId || null)
 
-  // Keep ref synchronized with store
+  // Keep ref synced with Zustand
   sessionIdRef.current = sessionId
 
 
@@ -57,9 +58,13 @@ export function useMathMode() {
     sessionIdRef.current = sid
 
     try {
-      const msgs = await loadToolMessages(user.uid, sid)
+      const msgs = await loadToolMessages(
+        user.uid,
+        sid
+      )
 
       setMessages(msgs)
+
     } catch (err) {
       console.error(
         'Failed to load math session:',
@@ -70,7 +75,7 @@ export function useMathMode() {
 
 
   // ─────────────────────────────────────────────
-  // SAVE TO FIREBASE IN BACKGROUND
+  // SAVE IN BACKGROUND
   // ─────────────────────────────────────────────
 
   async function saveToFirebase(
@@ -80,9 +85,11 @@ export function useMathMode() {
     assistantContent
   ) {
     try {
-      let currentSessionId = sessionIdRef.current
+      let currentSessionId =
+        sessionIdRef.current
 
-      // Create conversation if this is a new session
+
+      // Create session only if this is a new chat
       if (!currentSessionId) {
         const ref = await addDoc(
           collection(
@@ -104,8 +111,11 @@ export function useMathMode() {
 
         currentSessionId = ref.id
 
-        sessionIdRef.current = currentSessionId
+        // Update ref immediately
+        sessionIdRef.current =
+          currentSessionId
 
+        // Update Zustand
         setSessionId(currentSessionId)
       }
 
@@ -128,7 +138,7 @@ export function useMathMode() {
       )
 
 
-      // Save AI message
+      // Save assistant message
       await addDoc(
         collection(
           db,
@@ -146,7 +156,7 @@ export function useMathMode() {
       )
 
 
-      // Update conversation
+      // Update conversation metadata
       await updateDoc(
         doc(
           db,
@@ -160,6 +170,10 @@ export function useMathMode() {
           title,
         }
       )
+
+
+      // Important: sidebar cache must know something changed
+      invalidateConversationCache(uid)
 
     } catch (err) {
       console.error(
@@ -188,7 +202,6 @@ export function useMathMode() {
     addMessage(userMessage)
 
     setLoading(true)
-
     setStreamingContent('')
 
 
@@ -201,7 +214,7 @@ export function useMathMode() {
         }`
 
 
-      // Build conversation history
+      // Keep recent conversation history
       const history = [
         ...messages.slice(-10),
         userMessage,
@@ -209,8 +222,8 @@ export function useMathMode() {
 
 
       // ─────────────────────────────────────────
-      // CALL DEEPSEEK IMMEDIATELY
-      // FIREBASE DOES NOT BLOCK THIS
+      // CALL AI FIRST
+      // FIREBASE DOES NOT BLOCK RESPONSE
       // ─────────────────────────────────────────
 
       const fullContent =
@@ -230,7 +243,6 @@ export function useMathMode() {
           ],
 
           temperature: 0.1,
-
           maxTokens: 4096,
 
           onChunk: (content) => {
@@ -248,15 +260,13 @@ export function useMathMode() {
         content: fullContent,
       }
 
-
       addMessage(assistantMessage)
 
       setStreamingContent('')
 
 
       // ─────────────────────────────────────────
-      // SAVE TO FIREBASE IN BACKGROUND
-      // DOES NOT BLOCK THE USER
+      // SAVE TO FIRESTORE IN BACKGROUND
       // ─────────────────────────────────────────
 
       const uid = user?.uid
@@ -267,7 +277,12 @@ export function useMathMode() {
           previewTitle,
           userMessage,
           fullContent
-        )
+        ).catch((err) => {
+          console.error(
+            'Math background save failed:',
+            err
+          )
+        })
       }
 
 
@@ -276,7 +291,6 @@ export function useMathMode() {
 
       addMessage({
         role: 'assistant',
-
         content:
           'Something went wrong. Check your connection and try again.',
       })
@@ -287,9 +301,7 @@ export function useMathMode() {
       )
 
     } finally {
-
       setLoading(false)
-
       setStreamingContent('')
     }
   }
@@ -312,17 +324,12 @@ export function useMathMode() {
 
   return {
     messages,
-
     streamingContent,
-
     loading,
 
     send,
-
     clearMessages,
-
     startNewSession,
-
     loadSession,
   }
 }

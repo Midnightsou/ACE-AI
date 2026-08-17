@@ -25,40 +25,99 @@ async function saveToFirebase(
   setActiveConversationId,
   bringToTop,
 ) {
+  if (!uid) {
+    console.warn('Firebase save skipped: no user UID')
+    return null
+  }
+
   try {
     let convId = convIdRef.current
 
+    console.log('[Chat Save] Starting save', {
+      uid,
+      existingConversationId: convId,
+    })
+
     // Create conversation if this is a new chat
     if (!convId) {
+      console.log('[Chat Save] Creating conversation...')
+
       convId = await createConversation(uid, title)
 
-      // Set ref immediately
+      console.log(
+        '[Chat Save] Conversation created:',
+        convId
+      )
+
+      // Update ref immediately
       convIdRef.current = convId
 
-      // Update Zustand conversation state
+      // Update Zustand state
       setActiveConversationId(convId)
     }
 
-    // Save both messages
-    await saveMessage(uid, convId, userMessage)
+    console.log('[Chat Save] Saving user message...')
 
-    await saveMessage(uid, convId, {
-      role: 'assistant',
-      content: assistantContent,
-    })
+    await saveMessage(
+      uid,
+      convId,
+      userMessage
+    )
+
+    console.log('[Chat Save] User message saved')
+
+    console.log('[Chat Save] Saving assistant message...')
+
+    await saveMessage(
+      uid,
+      convId,
+      {
+        role: 'assistant',
+        content: assistantContent,
+      }
+    )
+
+    console.log('[Chat Save] Assistant message saved')
 
     // Count successful AI message
     await incrementMessageCount(uid)
 
+    console.log('[Chat Save] Message count updated')
+
     // Refresh sidebar
-    loadConversations(uid)
-      .then((conversations) => {
-        setConversations(conversations)
-        bringToTop(convId)
-      })
-      .catch(() => {})
+    try {
+      const conversations =
+        await loadConversations(uid)
+
+      setConversations(conversations)
+
+      bringToTop(convId)
+
+      console.log(
+        '[Chat Save] Conversations refreshed'
+      )
+
+    } catch (refreshErr) {
+      console.error(
+        '[Chat Save] Sidebar refresh failed:',
+        refreshErr
+      )
+    }
+
+    console.log(
+      '[Chat Save] Successfully completed:',
+      convId
+    )
+
+    return convId
+
   } catch (err) {
-    console.error('Background Firebase save failed:', err)
+    console.error(
+      '[Chat Save] FAILED:',
+      err
+    )
+
+    return null
   }
 }
 
@@ -207,6 +266,21 @@ export function useChat() {
           setConversations,
           setActiveConversationId,
           bringToTop,
+        ).then((savedConvId) => {
+          if (savedConvId) {
+            console.log(
+              '[Chat Save] Background save confirmed:',
+              savedConvId
+            )
+          } else {
+            console.error(
+              '[Chat Save] Background save was not completed'
+            )
+          }
+        })
+      } else {
+        console.error(
+          '[Chat Save] Cannot save: user UID is missing'
         )
       }
 

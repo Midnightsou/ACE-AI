@@ -4,17 +4,29 @@ export const useUserStore = create((set) => ({
   user: null,
   loading: true,
 
-  setUser: (user) =>
-    set({
-      user,
-      loading: false,
-    }),
+  setUser: (user) => set({
+    user,
+  }),
 
-  setLoading: (loading) => set({ loading }),
+  setLoading: (loading) => set({
+    loading,
+  }),
 
-  clearUser: () =>
-    set({
-      user: null,
-      loading: false,
-    }),
+  clearUser: () => set({
+    user: null,
+    loading: false,
+  }),
+
+  updateProfile: (profile) =>
+    set((state) => ({
+      user: state.user
+        ? {
+            ...state.user,
+            profile: {
+              ...state.user.profile,
+              ...profile,
+            },
+          }
+        : null,
+    })),
 }))

@@ -14,6 +14,13 @@ const firebaseConfig = {
   appId: import.meta.env.VITE_FIREBASE_APP_ID,
 }
 
+console.log('Firebase project:', firebaseConfig.projectId)
+console.log('Firebase auth domain:', firebaseConfig.authDomain)
+console.log(
+  'Firebase API key exists:',
+  !!firebaseConfig.apiKey
+)
+
 const app =
   getApps().length
     ? getApps()[0]

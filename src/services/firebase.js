@@ -1,9 +1,8 @@
 import { initializeApp, getApps } from 'firebase/app'
 import { getAuth, GoogleAuthProvider } from 'firebase/auth'
 import {
-  initializeFirestore,
-  persistentLocalCache,
-  persistentMultipleTabManager,
+  getFirestore,
+  enableNetwork,
 } from 'firebase/firestore'
 
 const firebaseConfig = {
@@ -15,14 +14,57 @@ const firebaseConfig = {
   appId: import.meta.env.VITE_FIREBASE_APP_ID,
 }
 
-// Prevent double initialization
-const app = getApps().length ? getApps()[0] : initializeApp(firebaseConfig)
+const app =
+  getApps().length
+    ? getApps()[0]
+    : initializeApp(firebaseConfig)
 
 export const auth = getAuth(app)
-export const googleProvider = new GoogleAuthProvider()
 
-export const db = initializeFirestore(app, {
-  localCache: persistentLocalCache({
-    tabManager: persistentMultipleTabManager(),
-  }),
+export const googleProvider =
+  new GoogleAuthProvider()
+
+export const db = getFirestore(app)
+
+console.log(
+  '[Firebase] Project:',
+  firebaseConfig.projectId
+)
+
+console.log(
+  '[Firebase] Environment:',
+  import.meta.env.MODE
+)
+
+enableNetwork(db)
+  .then(() => {
+    console.log(
+      '[Firestore] Network enabled'
+    )
+  })
+  .catch((err) => {
+    console.error(
+      '[Firestore] Failed to enable network:',
+      err
+    )
+  })
+
+window.addEventListener('online', () => {
+  console.log(
+    '[Network] Browser is online — reconnecting Firestore'
+  )
+
+  enableNetwork(db)
+    .catch((err) => {
+      console.error(
+        '[Firestore] Reconnect failed:',
+        err
+      )
+    })
+})
+
+window.addEventListener('offline', () => {
+  console.warn(
+    '[Network] Browser is offline'
+  )
 })

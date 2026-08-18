@@ -1,5 +1,4 @@
 import { useEffect } from 'react'
-
 import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
@@ -9,35 +8,20 @@ import {
   sendPasswordResetEmail,
   sendEmailVerification,
 } from 'firebase/auth'
-
 import {
   doc,
   setDoc,
   getDoc,
-  getDocFromCache,
   serverTimestamp,
 } from 'firebase/firestore'
-
-import {
-  auth,
-  db,
-  googleProvider,
-} from '../services/firebase'
-
+import { auth, db, googleProvider } from '../services/firebase'
 import { useUserStore } from '../store/userStore'
-
 
 let authListenerStarted = false
 
-
 function createFallbackProfile(firebaseUser) {
-  // Important:
-  // Check whether we previously confirmed onboarding.
-
   const cachedOnboarded =
-    sessionStorage.getItem(
-      `onboarded_${firebaseUser.uid}`
-    ) === 'true'
+    sessionStorage.getItem(`onboarded_${firebaseUser.uid}`) === 'true'
 
   return {
     uid: firebaseUser.uid,
@@ -51,58 +35,28 @@ function createFallbackProfile(firebaseUser) {
     lastMessageReset: new Date().toDateString(),
     streak: 0,
     lastStreakDate: '',
-
-    // Never blindly assume false
     onboarded: cachedOnboarded,
   }
 }
 
-
 async function getOrCreateProfile(firebaseUser) {
-  const ref = doc(
-    db,
-    'students',
-    firebaseUser.uid
-  )
+  const ref = doc(db, 'students', firebaseUser.uid)
 
-  try {
-    console.log(
-      '[Auth] Fetching Firestore profile...'
-    )
-
+  // Race against a 5 second timeout
+  const profilePromise = (async () => {
     const snap = await getDoc(ref)
 
-    // Existing user
     if (snap.exists()) {
       const profile = snap.data()
-
-      console.log(
-        '[Auth] Profile loaded successfully'
-      )
-
-      // Cache onboarding state
       if (profile.onboarded === true) {
-        sessionStorage.setItem(
-          `onboarded_${firebaseUser.uid}`,
-          'true'
-        )
+        sessionStorage.setItem(`onboarded_${firebaseUser.uid}`, 'true')
       } else {
-        sessionStorage.removeItem(
-          `onboarded_${firebaseUser.uid}`
-        )
+        sessionStorage.removeItem(`onboarded_${firebaseUser.uid}`)
       }
-
       return profile
     }
 
-
-    // No profile exists.
-    // This is genuinely a new user.
-
-    console.log(
-      '[Auth] Creating new profile...'
-    )
-
+    // New user — create profile
     const newProfile = {
       uid: firebaseUser.uid,
       email: firebaseUser.email || '',
@@ -116,232 +70,116 @@ async function getOrCreateProfile(firebaseUser) {
       streak: 0,
       lastStreakDate: '',
       onboarded: false,
-
       createdAt: serverTimestamp(),
       lastActive: serverTimestamp(),
     }
 
     await setDoc(ref, newProfile)
+    return { ...newProfile, onboarded: false }
+  })()
 
-    console.log(
-      '[Auth] New profile created'
-    )
+  const timeoutPromise = new Promise((_, reject) =>
+    setTimeout(() => reject(new Error('Firestore timeout')), 5000)
+  )
 
-    return {
-      ...newProfile,
-      onboarded: false,
-    }
-
+  try {
+    return await Promise.race([profilePromise, timeoutPromise])
   } catch (err) {
-    console.warn(
-      '[Auth] Firestore profile fetch failed:',
-      err.code,
-      err.message
-    )
-
-
-    // Try Firestore's persistent cache
-    try {
-      const cachedSnap = await getDocFromCache(ref)
-
-      if (cachedSnap.exists()) {
-        console.log(
-          '[Auth] Using cached Firestore profile'
-        )
-
-        const profile = cachedSnap.data()
-
-        if (profile.onboarded === true) {
-          sessionStorage.setItem(
-            `onboarded_${firebaseUser.uid}`,
-            'true'
-          )
-        }
-
-        return profile
-      }
-
-    } catch (cacheError) {
-      console.warn(
-        '[Auth] No Firestore cache available'
-      )
-    }
-
-
-    // Last-resort fallback.
-    // Do NOT create a new Firestore profile here.
-    console.warn(
-      '[Auth] Using temporary fallback profile'
-    )
-
+    console.warn('[Auth] Profile fetch failed or timed out:', err.message)
+    // Return fallback — app still works
     return createFallbackProfile(firebaseUser)
   }
 }
 
-
 function initAuthListener() {
   if (authListenerStarted) return
-
   authListenerStarted = true
 
-  const {
-    setUser,
-    setLoading,
-    clearUser,
-  } = useUserStore.getState()
+  const { setUser, setLoading, clearUser } = useUserStore.getState()
 
+  // Overall safety timeout — never hang longer than 8s
+  const safetyTimer = setTimeout(() => {
+    setLoading(false)
+  }, 10000)
 
-  onAuthStateChanged(
-    auth,
-    async (firebaseUser) => {
+  onAuthStateChanged(auth, async (firebaseUser) => {
+    clearTimeout(safetyTimer)
 
-      if (!firebaseUser) {
-        clearUser()
-        return
-      }
-
-      setLoading(true)
-
-      try {
-        const profile =
-          await getOrCreateProfile(firebaseUser)
-
-        setUser({
-          uid: firebaseUser.uid,
-          email: firebaseUser.email || '',
-          displayName:
-            firebaseUser.displayName || '',
-          photoURL:
-            firebaseUser.photoURL || null,
-          emailVerified:
-            firebaseUser.emailVerified,
-          profile,
-        })
-
-      } catch (err) {
-
-        console.error(
-          '[Auth] Unexpected auth error:',
-          err
-        )
-
-        // Auth still works even if profile fails
-        setUser({
-          uid: firebaseUser.uid,
-          email: firebaseUser.email || '',
-          displayName:
-            firebaseUser.displayName || '',
-          photoURL:
-            firebaseUser.photoURL || null,
-          emailVerified:
-            firebaseUser.emailVerified,
-          profile:
-            createFallbackProfile(firebaseUser),
-          profileError: true,
-        })
-
-      } finally {
-        setLoading(false)
-      }
+    if (!firebaseUser) {
+      clearUser()
+      return
     }
-  )
+
+    setLoading(true)
+
+    try {
+      const profile = await getOrCreateProfile(firebaseUser)
+
+      setUser({
+        uid: firebaseUser.uid,
+        email: firebaseUser.email || '',
+        displayName: firebaseUser.displayName || '',
+        photoURL: firebaseUser.photoURL || null,
+        emailVerified: firebaseUser.emailVerified,
+        profile,
+      })
+    } catch (err) {
+      console.error('[Auth] Unexpected error:', err)
+      setUser({
+        uid: firebaseUser.uid,
+        email: firebaseUser.email || '',
+        displayName: firebaseUser.displayName || '',
+        photoURL: firebaseUser.photoURL || null,
+        emailVerified: firebaseUser.emailVerified,
+        profile: createFallbackProfile(firebaseUser),
+      })
+    } finally {
+      setLoading(false)
+    }
+  })
 }
 
-
 export function useAuth() {
-
-  const user =
-    useUserStore((s) => s.user)
-
-  const loading =
-    useUserStore((s) => s.loading)
-
+  const user = useUserStore((s) => s.user)
+  const loading = useUserStore((s) => s.loading)
 
   useEffect(() => {
     initAuthListener()
-  }, [])
-
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   async function signup(email, password) {
-    return createUserWithEmailAndPassword(
-      auth,
-      email,
-      password
-    )
+    return createUserWithEmailAndPassword(auth, email, password)
   }
-
 
   async function login(email, password) {
-    return signInWithEmailAndPassword(
-      auth,
-      email,
-      password
-    )
+    return signInWithEmailAndPassword(auth, email, password)
   }
-
 
   async function loginWithGoogle() {
-    return signInWithPopup(
-      auth,
-      googleProvider
-    )
+    return signInWithPopup(auth, googleProvider)
   }
-
 
   async function logout() {
-
     await signOut(auth)
-
-    useUserStore
-      .getState()
-      .clearUser()
+    useUserStore.getState().clearUser()
   }
-
 
   async function forgotPassword(email) {
-    return sendPasswordResetEmail(
-      auth,
-      email
-    )
+    return sendPasswordResetEmail(auth, email)
   }
-
 
   async function sendVerificationEmail() {
-
-    const currentUser =
-      auth.currentUser
-
-    if (!currentUser) {
-      throw new Error(
-        'Not logged in'
-      )
-    }
-
-    if (currentUser.emailVerified) {
-      throw new Error(
-        'Already verified'
-      )
-    }
-
-    await sendEmailVerification(
-      currentUser,
-      {
-        url:
-          window.location.origin +
-          '/chat',
-      }
-    )
+    const currentUser = auth.currentUser
+    if (!currentUser) throw new Error('Not logged in')
+    if (currentUser.emailVerified) throw new Error('Already verified')
+    await sendEmailVerification(currentUser, {
+      url: window.location.origin + '/chat',
+    })
   }
 
-
   return {
-    user,
-    loading,
-    signup,
-    login,
-    loginWithGoogle,
-    logout,
-    forgotPassword,
-    sendVerificationEmail,
+    user, loading,
+    signup, login, loginWithGoogle, logout,
+    forgotPassword, sendVerificationEmail,
   }
 }

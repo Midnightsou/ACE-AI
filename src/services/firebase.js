@@ -1,12 +1,10 @@
 import { initializeApp, getApps } from 'firebase/app'
 import { getAuth, GoogleAuthProvider } from 'firebase/auth'
-
 import {
   initializeFirestore,
   persistentLocalCache,
   persistentMultipleTabManager,
 } from 'firebase/firestore'
-
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -17,22 +15,18 @@ const firebaseConfig = {
   appId: import.meta.env.VITE_FIREBASE_APP_ID,
 }
 
-
-const app =
-  getApps().length
-    ? getApps()[0]
-    : initializeApp(firebaseConfig)
-
+const app = getApps().length
+  ? getApps()[0]
+  : initializeApp(firebaseConfig)
 
 export const auth = getAuth(app)
+export const googleProvider = new GoogleAuthProvider()
 
-export const googleProvider =
-  new GoogleAuthProvider()
-
-
+// persistentLocalCache = reads from IndexedDB cache first
+// then syncs with server in background
+// This means Firestore works even on slow/flaky connections
 export const db = initializeFirestore(app, {
   localCache: persistentLocalCache({
-    tabManager:
-      persistentMultipleTabManager(),
+    tabManager: persistentMultipleTabManager(),
   }),
 })

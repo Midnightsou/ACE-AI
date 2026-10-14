@@ -7,7 +7,6 @@ import {
   Routes,
   Route,
   Navigate,
-  useLocation,
 } from 'react-router-dom'
 
 import { useUserStore } from './store/userStore'
@@ -63,78 +62,15 @@ function Spinner() {
 }
 
 function ProtectedRoute({ children }) {
-  const user =
-    useUserStore(
-      (s) => s.user
-    )
-
-  const loading =
-    useUserStore(
-      (s) => s.loading
-    )
-
-  const location =
-    useLocation()
+  const user = useUserStore((s) => s.user)
+  const loading = useUserStore((s) => s.loading)
 
   if (loading) {
     return <Spinner />
   }
 
-  // Not logged in
   if (!user) {
-    return (
-      <Navigate
-        to="/login"
-        replace
-      />
-    )
-  }
-
-  /*
-   If Firestore temporarily fails but the user
-   is authenticated, don't immediately force them
-   into onboarding.
-
-   The app can retry profile loading on the next
-   refresh instead of creating an onboarding loop.
-  */
-
-  if (!user.profile) {
-    return children
-  }
-
-  const isOnboardingRoute =
-    location.pathname ===
-    '/onboarding'
-
-  const isOnboarded =
-    user.profile.onboarded ===
-    true
-
-  // Account has NOT completed onboarding
-  if (
-    !isOnboarded &&
-    !isOnboardingRoute
-  ) {
-    return (
-      <Navigate
-        to="/onboarding"
-        replace
-      />
-    )
-  }
-
-  // Account has ALREADY completed onboarding
-  if (
-    isOnboarded &&
-    isOnboardingRoute
-  ) {
-    return (
-      <Navigate
-        to="/chat"
-        replace
-      />
-    )
+    return <Navigate to="/login" replace />
   }
 
   return children
@@ -163,11 +99,7 @@ export default function AppRouter() {
 
         <Route
           path="/onboarding"
-          element={
-            <ProtectedRoute>
-              <OnboardingFlow />
-            </ProtectedRoute>
-          }
+          element={<OnboardingFlow />}
         />
 
         <Route

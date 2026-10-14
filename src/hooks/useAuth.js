@@ -91,6 +91,21 @@ function initAuthListener() {
   )
 }
 
+const PROFILE_TIMEOUT_MS = 8000
+
+function withTimeout(promise, ms, label) {
+  let timer
+  const timeout = new Promise((_, reject) => {
+    timer = setTimeout(
+      () => reject(new Error(`${label || 'Firestore operation'} timed out after ${ms}ms (offline?)`)),
+      ms
+    )
+  })
+  // Promise.race ensures a hanging getDoc/setDoc (offline, blocked WebChannel)
+  // can't leave `loading` stuck at true forever.
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer))
+}
+
 async function getOrCreateProfile(firebaseUser) {
   const ref = doc(
     db,
@@ -99,7 +114,7 @@ async function getOrCreateProfile(firebaseUser) {
   )
 
   try {
-    const snap = await getDoc(ref)
+    const snap = await withTimeout(getDoc(ref), PROFILE_TIMEOUT_MS, 'Profile fetch')
 
     // Profile already exists
     if (snap.exists()) {
@@ -128,9 +143,13 @@ async function getOrCreateProfile(firebaseUser) {
       lastActive: serverTimestamp(),
     }
 
-    await setDoc(
-      ref,
-      newProfile
+    await withTimeout(
+      setDoc(
+        ref,
+        newProfile
+      ),
+      PROFILE_TIMEOUT_MS,
+      'Profile create'
     )
 
     return {

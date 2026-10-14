@@ -11,6 +11,8 @@ import {
 
 import { useUserStore } from './store/userStore'
 
+import { tourDone } from './components/onboarding/tour'
+
 import LoginPage from './pages/LoginPage'
 import SignupPage from './pages/SignupPage'
 
@@ -73,6 +75,10 @@ function ProtectedRoute({ children }) {
     return <Navigate to="/login" replace />
   }
 
+  if (!tourDone() && window.location.pathname === '/chat') {
+    return <Navigate to="/onboarding" replace />
+  }
+
   return children
 }
 
@@ -99,7 +105,11 @@ export default function AppRouter() {
 
         <Route
           path="/onboarding"
-          element={<OnboardingFlow />}
+          element={
+            <ProtectedRoute>
+              <OnboardingFlow />
+            </ProtectedRoute>
+          }
         />
 
         <Route

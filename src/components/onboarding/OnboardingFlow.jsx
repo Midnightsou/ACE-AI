@@ -1,57 +1,69 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import GrimMascot from '../GrimMascot'
 import { markTourDone } from './tour'
 
 const slides = [
-  { icon: '💬', title: 'Chat with Ace', desc: 'Ask anything: writing, coding, research, homework help.' },
-  { icon: '🛠️', title: 'Smart tools', desc: 'CV Maker, Essay Writer, Email Composer, Codex and more, all in one place.' },
-  { icon: '🌍', title: 'Speaks your language', desc: 'English, Pidgin, Yoruba or Hausa. Change it anytime in your profile.' },
-  { icon: '📚', title: 'Study better', desc: 'Dojo turns your notes into flashcards, quizzes and summaries.' },
+  { mood: 'welcome', title: 'Meet Ace', text: 'Your AI workspace for writing, studying, coding and getting work done.' },
+  { mood: 'happy', title: 'Tools for real tasks', text: 'CV Maker, Essay Writer, Email Composer, Codex and more, all in one place.' },
+  { mood: 'think', title: 'Study smarter', text: 'Turn your notes into flashcards, quizzes and summaries with Dojo.' },
+  { mood: 'celebrate', title: "You're ready", text: 'Start a chat, or pick a tool. You can replay this tour from your profile.' },
 ]
 
 export default function OnboardingFlow() {
   const navigate = useNavigate()
   const [i, setI] = useState(0)
   const last = i === slides.length - 1
+  const s = slides[i]
 
   function finish() {
-    markTourDone()
+    try { markTourDone() } catch { /* private mode: tour may repeat, nothing breaks */ }
     navigate('/chat', { replace: true })
   }
 
-  const s = slides[i]
+  const next = () => (last ? finish() : setI((n) => n + 1))
+  const back = () => setI((n) => Math.max(0, n - 1))
+
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key === 'ArrowRight') next()
+      if (e.key === 'ArrowLeft') back()
+      if (e.key === 'Escape') finish()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  })
 
   return (
-    <div className="min-h-screen bg-zinc-50 flex items-center justify-center px-4">
-      <div className="w-full max-w-md flex flex-col items-center gap-6 text-center">
-        <div className="flex gap-2">
+    <div className="flex min-h-dvh flex-col bg-zinc-50 dark:bg-zinc-950">
+      <div className="flex items-center gap-4 px-5 pt-[max(1.25rem,env(safe-area-inset-top))]">
+        <div className="flex flex-1 gap-1.5" role="progressbar" aria-valuemin={1} aria-valuemax={slides.length} aria-valuenow={i + 1} aria-label="Onboarding progress">
           {slides.map((_, n) => (
-            <div key={n} className={`h-1.5 rounded-full transition-all ${n === i ? 'w-6 bg-violet-600' : 'w-3 bg-zinc-200'}`} />
+            <div key={n} className={`h-1.5 flex-1 rounded-full transition-colors duration-300 ${n <= i ? 'bg-violet-600' : 'bg-zinc-200 dark:bg-zinc-800'}`} />
           ))}
         </div>
-        <div className="w-20 h-20 bg-violet-100 rounded-3xl flex items-center justify-center text-4xl">{s.icon}</div>
-        <div>
-          <h2 className="text-2xl font-bold text-zinc-900">{s.title}</h2>
-          <p className="text-zinc-500 mt-2 leading-relaxed">{s.desc}</p>
-        </div>
-        <div className="flex gap-3 w-full">
-          {i > 0 && (
-            <button onClick={() => setI(i - 1)} className="flex-1 py-3.5 border border-zinc-200 text-zinc-600 font-medium rounded-2xl">
-              Back
-            </button>
-          )}
-          <button
-            onClick={last ? finish : () => setI(i + 1)}
-            className="flex-1 py-3.5 bg-violet-600 hover:bg-violet-700 text-white font-medium rounded-2xl"
-          >
-            {last ? 'Get Started' : 'Next'}
-          </button>
-        </div>
         {!last && (
-          <button onClick={finish} className="text-sm text-zinc-400 hover:text-zinc-600">
+          <button onClick={finish} className="min-h-11 min-w-11 px-2 text-sm font-medium text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-600 rounded-lg">
             Skip
           </button>
         )}
+      </div>
+      <main className="flex flex-1 flex-col items-center justify-center px-6 text-center">
+        <div key={i} className="grim-float">
+          <GrimMascot mood={s.mood} size={190} />
+        </div>
+        <h1 className="mt-6 text-3xl font-bold tracking-tight text-zinc-900 dark:text-white">{s.title}</h1>
+        <p className="mt-3 max-w-sm text-base leading-relaxed text-zinc-600 dark:text-zinc-300">{s.text}</p>
+      </main>
+      <div className="flex gap-3 px-5 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
+        {i > 0 && (
+          <button onClick={back} className="min-h-12 flex-1 rounded-2xl border border-zinc-200 font-semibold text-zinc-700 active:scale-[0.98] dark:border-zinc-700 dark:text-zinc-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-600">
+            Back
+          </button>
+        )}
+        <button onClick={next} className="min-h-12 flex-[2] rounded-2xl bg-violet-600 hover:bg-violet-700 font-semibold text-white shadow-lg shadow-violet-600/25 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-600 focus-visible:ring-offset-2">
+          {last ? 'Get Started' : 'Next'}
+        </button>
       </div>
     </div>
   )

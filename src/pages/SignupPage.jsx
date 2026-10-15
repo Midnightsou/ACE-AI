@@ -3,6 +3,8 @@ import { useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import Button from '../components/ui/Button'
 import Input from '../components/ui/Input'
+import AuthLayout, { FieldError, ButtonSpinner, GoogleMark } from '../components/auth/AuthLayout'
+import GrimMascot from '../components/GrimMascot'
 
 export default function SignupPage() {
   const { signup, loginWithGoogle } = useAuth()
@@ -53,70 +55,66 @@ export default function SignupPage() {
   }
 
   return (
-    <div className="min-h-screen bg-zinc-50 flex items-center justify-center px-4">
-      <div className="w-full max-w-sm">
-
-        {/* Logo / brand */}
-        <div className="mb-8 text-center">
-          <div className="w-12 h-12 bg-violet-600 rounded-2xl mx-auto mb-4 flex items-center justify-center">
-            <span className="text-white text-xl font-bold">A</span>
-          </div>
-          <h1 className="text-2xl font-bold text-zinc-900">Create your account</h1>
-          <p className="text-sm text-zinc-500 mt-1">Start learning smarter today</p>
-        </div>
-
-        {/* Form */}
-        <form onSubmit={handleSignup} className="bg-white rounded-2xl p-6 shadow-sm border border-zinc-100 flex flex-col gap-4">
-          <Input
-            label="Email"
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="you@email.com"
-          />
-          <Input
-            label="Password"
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="Min 6 characters"
-          />
-          <Input
-            label="Confirm password"
-            type="password"
-            value={confirm}
-            onChange={(e) => setConfirm(e.target.value)}
-            placeholder="••••••••"
-          />
-
-          {error && (
-            <p className="text-sm text-red-500 bg-red-50 px-3 py-2 rounded-lg">{error}</p>
-          )}
-
-          <Button type="submit" disabled={loading}>
-            {loading ? 'Creating account...' : 'Create account'}
-          </Button>
-
-          <div className="flex items-center gap-3">
-            <div className="flex-1 h-px bg-zinc-100" />
-            <span className="text-xs text-zinc-400">or</span>
-            <div className="flex-1 h-px bg-zinc-100" />
-          </div>
-
-          <Button variant="ghost" onClick={handleGoogle} disabled={loading}>
-            Continue with Google
-          </Button>
-        </form>
-
-        <p className="text-center text-sm text-zinc-500 mt-4">
+    <AuthLayout
+      eyebrow="Ace AI"
+      title="Create your account"
+      subtitle="Start learning smarter today"
+      mascot={<GrimMascot mood="happy" size={104} />}
+      footer={
+        <p className="text-center text-[13.5px] text-zinc-500">
           Already have an account?{' '}
-          <Link to="/login" className="text-violet-600 font-medium hover:underline">
+          <Link to="/login" className="font-semibold text-violet-600 hover:text-violet-700 hover:underline underline-offset-4 decoration-violet-200 transition-colors">
             Log in
           </Link>
         </p>
+      }
+    >
+      <form onSubmit={handleSignup} className="flex flex-col gap-4" noValidate>
+        <Input
+          label="Email"
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="you@email.com"
+          autoComplete="email"
+        />
+        <Input
+          label="Password"
+          type="password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          placeholder="Min 6 characters"
+          autoComplete="new-password"
+        />
+        <Input
+          label="Confirm password"
+          type="password"
+          value={confirm}
+          onChange={(e) => setConfirm(e.target.value)}
+          placeholder="••••••••"
+          autoComplete="new-password"
+        />
 
-      </div>
-    </div>
+        <FieldError>{error}</FieldError>
+
+        <Button type="submit" disabled={loading}>
+          {loading && <ButtonSpinner />}
+          {loading ? 'Creating account...' : 'Create account'}
+        </Button>
+
+        <div className="flex items-center gap-3 py-0.5" aria-hidden="true">
+          <div className="flex-1 h-px bg-zinc-200" />
+          <span className="text-[11px] font-medium uppercase tracking-[0.12em] text-zinc-400">or</span>
+          <div className="flex-1 h-px bg-zinc-200" />
+        </div>
+
+        <Button variant="ghost" onClick={handleGoogle} disabled={loading}>
+          {!loading && <GoogleMark />}
+          {loading && <ButtonSpinner />}
+          Continue with Google
+        </Button>
+      </form>
+    </AuthLayout>
   )
 }
 

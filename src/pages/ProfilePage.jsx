@@ -8,6 +8,7 @@ import { updatePassword, EmailAuthProvider, reauthenticateWithCredential } from 
 import { auth } from '../services/firebase'
 import ThemeToggle from '../components/ui/ThemeToggle'
 import { useToast } from '../components/ui/Toast'
+import GrimMascot from '../components/GrimMascot'
 
 const languages = [
   { code: 'english', label: 'English', flag: '🇬🇧' },
@@ -15,6 +16,24 @@ const languages = [
   { code: 'yoruba', label: 'Yoruba', flag: '🟢' },
   { code: 'hausa', label: 'Hausa', flag: '🔵' },
 ]
+
+function VerifyEmailButton() {
+  const { sendVerificationEmail } = useAuth()
+  const { toast } = useToast()
+  async function onClick() {
+    try {
+      await sendVerificationEmail()
+      toast.success('Verification email sent')
+    } catch (err) {
+      toast.error(err?.message === 'Already verified' ? 'Already verified' : 'Could not send. Try again later.')
+    }
+  }
+  return (
+    <button onClick={onClick} className="shrink-0 min-h-11 px-3 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-600 focus-visible:ring-offset-2">
+      Resend
+    </button>
+  )
+}
 
 export default function ProfilePage() {
   const navigate = useNavigate()
@@ -149,6 +168,17 @@ export default function ProfilePage() {
                 </span>
               </div>
             </div>
+
+            {user && user.emailVerified === false && (
+              <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3">
+                <GrimMascot mood="safe" size={40} title="Verify your email" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-[13px] font-semibold text-amber-900">Email not verified yet</p>
+                  <p className="text-xs text-amber-700">Verify to secure your account. You can keep using Ace.</p>
+                </div>
+                <VerifyEmailButton />
+              </div>
+            )}
 
             {/* Edit profile */}
             <div className="bg-white rounded-2xl border border-zinc-100 shadow-sm overflow-hidden">
@@ -319,7 +349,13 @@ export default function ProfilePage() {
               <div className="px-5 py-4 border-b border-zinc-50">
                 <p className="text-sm font-semibold text-zinc-800">Account actions</p>
               </div>
-              <div className="p-5">
+              <div className="p-5 flex flex-col gap-3">
+                <button
+                  onClick={() => { try { localStorage.removeItem('ace_tour_done') } catch {} navigate('/onboarding') }}
+                  className="w-full py-3 border border-zinc-200 hover:border-violet-300 hover:bg-violet-50 text-zinc-700 text-sm font-medium rounded-xl transition-colors flex items-center justify-center gap-2"
+                >
+                  Replay tour
+                </button>
                 <button
                   onClick={handleLogout}
                   className="w-full py-3 border border-red-200 hover:bg-red-50 text-red-500 text-sm font-medium rounded-xl transition-colors flex items-center justify-center gap-2"

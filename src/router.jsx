@@ -12,6 +12,8 @@ import {
 import { useUserStore } from './store/userStore'
 
 import { tourDone } from './components/onboarding/tour'
+import SplashLoader from './components/SplashLoader'
+import NotFoundPage from './pages/NotFoundPage'
 
 import LoginPage from './pages/LoginPage'
 import SignupPage from './pages/SignupPage'
@@ -56,11 +58,7 @@ const SharedConversationPage =
   )
 
 function Spinner() {
-  return (
-    <div className="flex items-center justify-center h-screen bg-zinc-50 dark:bg-zinc-950">
-      <div className="w-7 h-7 border-3 border-violet-600 border-t-transparent rounded-full animate-spin" />
-    </div>
-  )
+  return <SplashLoader />
 }
 
 function ProtectedRoute({ children }) {
@@ -164,15 +162,7 @@ export default function AppRouter() {
           }
         />
 
-        <Route
-          path="*"
-          element={
-            <Navigate
-              to="/chat"
-              replace
-            />
-          }
-        />
+        <Route path="*" element={<NotFoundPage />} />
 
       </Routes>
     </Suspense>

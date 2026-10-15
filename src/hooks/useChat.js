@@ -138,6 +138,7 @@ export function useChat() {
   const [isSearching, setIsSearching] = useState(false)
   const abortRef = useRef(null)
   const convIdRef = useRef(activeConversationId || null)
+  const lastUserTextRef = useRef('')
 
   // Keep ref in sync with store
   convIdRef.current = activeConversationId
@@ -172,6 +173,7 @@ export function useChat() {
     }
 
     const userMessage = { role: 'user', content: text }
+    lastUserTextRef.current = text
     addMessage(userMessage)
     setLoading(true)
     setStreamingContent('')
@@ -361,10 +363,22 @@ export function useChat() {
     send(newContent)
   }
 
+  async function retry() {
+    const lastUser = [...messages].reverse().find((m) => m.role === 'user')
+    const text = lastUser?.content || lastUserTextRef.current
+    if (!text) return
+    // drop the failed assistant message, then resend
+    const { messages: current } = useChatStore.getState()
+    if (current.length && current[current.length - 1]?.role === 'assistant') {
+      useChatStore.setState({ messages: current.slice(0, -1) })
+    }
+    await send(text)
+  }
+
   return {
     messages, streamingContent, loading,
     fileContext, setFileContext,
     isSearching,
-    send, loadConversation, startNewChat, handleEdit,
+    send, retry, loadConversation, startNewChat, handleEdit,
   }
 }

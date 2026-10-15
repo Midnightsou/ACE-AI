@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import GrimMascot from '../GrimMascot'
 import { useNetwork } from '../../hooks/useNetwork'
 
 const DISMISSED_KEY = 'ace_network_banner_dismissed'
@@ -30,10 +31,12 @@ export default function NetworkBanner() {
   return (
     <div
       id="network-banner"
-      className={`flex items-center justify-between px-4 py-2 text-xs font-medium z-50 flex-shrink-0
+      role="alert"
+      className={`flex items-center gap-2 px-4 py-2 text-xs font-medium z-50 flex-shrink-0
         ${!online ? 'bg-red-500 text-white' : 'bg-amber-400 text-amber-900'}`}
     >
-      <span>
+      <GrimMascot mood="oops" size={22} title="Connection problem" />
+      <span className="flex-1">
         {!online
           ? ' No internet — messages will send when you reconnect'
           : ' Slow connection — responses may take longer'

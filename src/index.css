@@ -47,3 +47,27 @@ html, body, #root {
 .dark .text-zinc-500 { color: #a1a1aa !important; }
 .dark .text-zinc-400 { color: #71717a !important; }
 .dark .shadow-sm { box-shadow: 0 1px 3px rgba(0,0,0,0.4) !important; }
+.dark .bg-zinc-200 { background-color: #3f3f46 !important; }
+.dark .border-red-100 { border-color: #3f1d1d !important; }
+.dark .bg-red-50 { background-color: rgba(127, 29, 29, 0.22) !important; }
+.dark .bg-emerald-50 { background-color: rgba(6, 78, 59, 0.3) !important; }
+.dark .ring-emerald-100 { --tw-ring-color: rgba(52, 211, 153, 0.25) !important; }
+
+/* Auth pages: subtle entrance, no gimmicks */
+@keyframes auth-enter {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.auth-enter { animation: auth-enter 0.45s cubic-bezier(0.22, 1, 0.36, 1) both; }
+@media (prefers-reduced-motion: reduce) {
+  .auth-enter { animation: none; }
+}
+/* Grim float animation (mascot kit) */
+@keyframes grim-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+.grim-float { animation: grim-float 3.2s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .grim-float { animation: none; }
+}

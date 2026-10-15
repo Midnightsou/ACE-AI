@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useChat } from '../../hooks/useChat'
 import { useUserStore } from '../../store/userStore'
 import MessageBubble from './MessageBubble'
+import GrimMascot from '../GrimMascot'
 import TypingIndicator from './TypingIndicator'
 import InputBar from './InputBar'
 import FileContextBanner from './FileContextBanner'
@@ -12,6 +13,13 @@ import { MessageSkeleton } from '../ui/Skeleton'
 import { createShareLink } from '../../services/shareService'
 import { useConversationStore } from '../../store/conversationStore'
 import { useToast } from '../ui/Toast'
+
+const starterPrompts = {
+  english: ['Solve x² + 5x + 6 = 0', 'Explain photosynthesis simply', 'Help me write a CV opening line', 'Summarise this topic for revision'],
+  pidgin: ['Solve x² + 5x + 6 = 0', 'Explain photosynthesis make e simple', 'Help me write correct email', 'Summarise this topic make I take read'],
+  yoruba: ['Yanju x² + 5x + 6 = 0', 'Ṣàlàyé photosynthesis ní ọ̀nà tí ó rọrùn', 'Ràn mí lọ́wọ́ láti kọ email', 'Ṣe àkótán fún àtúnyẹ̀wò'],
+  hausa: ['Magance x² + 5x + 6 = 0', 'Bayyana photosynthesis a saukake', 'Taimaka mini in rubuta email', 'Taƙaita wannan don nazari'],
+}
 
 const languageLabels = {
   english: 'English',
@@ -25,7 +33,7 @@ export default function ChatWindow() {
     messages, streamingContent, loading,
     fileContext, setFileContext,
     isSearching, loadingConversation,
-    send, handleEdit,
+    send, handleEdit, retry,
   } = useChat()
   const user = useUserStore((s) => s.user)
   const bottomRef = useRef(null)
@@ -100,9 +108,9 @@ export default function ChatWindow() {
         {loadingConversation ? (
           <MessageSkeleton />
         ) : messages.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-center gap-3 pb-12">
-            <div className="w-14 h-14 bg-violet-100 rounded-2xl flex items-center justify-center">
-              <span className="text-2xl">ACE</span>
+          <div className="flex flex-col items-center justify-center h-full text-center gap-3 pb-12 px-4">
+            <div className="grim-float">
+              <GrimMascot mood="think" size={120} />
             </div>
             <div>
               <p className="font-semibold text-zinc-800">Hey {name}!</p>
@@ -111,12 +119,7 @@ export default function ChatWindow() {
               </p>
             </div>
             <div className="flex flex-col gap-2 w-full max-w-xs mt-2">
-              {[
-                'Solve x² + 5x + 6 = 0',
-                'Explain photosynthesis simply',
-                'What is the capital of France?',
-                'Who wrote "To Kill a Mockingbird"?',
-              ].map((prompt) => (
+              {(starterPrompts[language] || starterPrompts.english).map((prompt) => (
                 <button
                   key={prompt}
                   onClick={() => send(prompt)}
@@ -154,6 +157,18 @@ export default function ChatWindow() {
             {/* Streaming */}
             {streamingContent && !isSearching && (
               <StreamingBubble content={streamingContent} />
+            )}
+
+            {/* Retry on failure */}
+            {!loading && !streamingContent && messages.length >= 2 && messages[messages.length - 1]?.role === 'assistant' && /went wrong|no internet|connection/i.test(messages[messages.length - 1]?.content || '') && (
+              <div className="flex justify-start mb-3">
+                <button
+                  onClick={retry}
+                  className="min-h-11 px-4 rounded-xl border border-zinc-200 bg-white text-sm font-semibold text-violet-700 hover:border-violet-400 hover:bg-violet-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-600"
+                >
+                  Retry
+                </button>
+              </div>
             )}
 
             {/* Loading dots */}

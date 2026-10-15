@@ -45,6 +45,11 @@ const OnboardingFlow =
     )
   )
 
+const LandingPage =
+  lazy(() =>
+    import('./pages/LandingPage')
+  )
+
 const ToolPage =
   lazy(() =>
     import('./pages/ToolPage')
@@ -86,6 +91,13 @@ export default function AppRouter() {
       fallback={<Spinner />}
     >
       <Routes>
+
+        <Route
+          path="/"
+          element={
+            <LandingPage />
+          }
+        />
 
         <Route
           path="/login"

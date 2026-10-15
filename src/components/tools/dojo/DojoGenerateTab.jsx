@@ -62,8 +62,8 @@ export default function DojoGenerateTab({ tabId }) {
     <div className="flex flex-col h-full">
 
       {/* Header */}
-      <div className="px-6 py-4 border-b border-zinc-100 flex items-center justify-between flex-shrink-0">
-        <div>
+      <div className="px-4 py-4 sm:px-6 border-b border-zinc-100 flex items-center justify-between gap-3 flex-shrink-0">
+        <div className="min-w-0">
           <p className="text-sm font-semibold text-zinc-800">
             {config.icon} {config.label}
           </p>
@@ -72,7 +72,7 @@ export default function DojoGenerateTab({ tabId }) {
         {content && !isGenerating && (
           <button
             onClick={handleCopy}
-            className="flex items-center gap-1.5 text-xs text-zinc-400 hover:text-violet-600 transition-colors"
+            className="min-h-11 flex-shrink-0 px-2 text-xs text-zinc-400 hover:text-violet-600 transition-colors"
           >
             Copy
           </button>
@@ -80,7 +80,7 @@ export default function DojoGenerateTab({ tabId }) {
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto px-6 py-5">
+      <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-6 sm:py-5">
         {!content && !isGenerating && (
           <div className="flex flex-col items-center justify-center h-full gap-4 text-center">
             <div className="w-14 h-14 bg-violet-50 rounded-2xl flex items-center justify-center text-2xl">
@@ -96,7 +96,7 @@ export default function DojoGenerateTab({ tabId }) {
             </div>
             <button
               onClick={() => generateContent(tabId, config.promptBuilder)}
-              className="px-6 py-3 bg-violet-600 hover:bg-violet-700 text-white text-sm font-medium rounded-xl transition-colors flex items-center gap-2"
+              className="min-h-12 px-6 py-3 bg-violet-600 hover:bg-violet-700 text-white text-sm font-medium rounded-xl transition-colors flex items-center gap-2"
             >
               <span>✨</span>
               {config.buttonLabel}

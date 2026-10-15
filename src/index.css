@@ -62,12 +62,3 @@ html, body, #root {
 @media (prefers-reduced-motion: reduce) {
   .auth-enter { animation: none; }
 }
-/* Grim float animation (mascot kit) */
-@keyframes grim-float {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-6px); }
-}
-.grim-float { animation: grim-float 3.2s ease-in-out infinite; }
-@media (prefers-reduced-motion: reduce) {
-  .grim-float { animation: none; }
-}

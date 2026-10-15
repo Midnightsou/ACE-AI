@@ -1,6 +1,6 @@
 import { useState } from 'react'
 
-export default function Input({ label, type = 'text', value, onChange, placeholder, error, required, autoComplete, ...rest }) {
+export default function Input({ label, type = 'text', value, onChange, placeholder, error, required, autoComplete, hidePasswordToggle = false, ...rest }) {
   const [showPassword, setShowPassword] = useState(false)
   const isPassword = type === 'password'
   const resolvedType = isPassword ? (showPassword ? 'text' : 'password') : type
@@ -20,7 +20,7 @@ export default function Input({ label, type = 'text', value, onChange, placehold
           {...rest}
           className={`w-full h-11 pl-3.5 ${isPassword ? 'pr-12' : 'pr-3.5'} rounded-xl border text-[14px] leading-none outline-none transition-all duration-150 bg-white text-zinc-900 placeholder:text-zinc-400 placeholder:font-normal shadow-[0_1px_2px_rgba(0,0,0,0.04)] hover:border-zinc-300 ${error ? 'border-red-300 focus:border-red-400 focus:ring-4 focus:ring-red-500/10' : 'border-zinc-200 focus:border-violet-500 focus:ring-4 focus:ring-violet-600/10'}`}
         />
-        {isPassword && (
+        {isPassword && !hidePasswordToggle && (
           <button
             type="button"
             onClick={() => setShowPassword((v) => !v)}
@@ -36,3 +36,4 @@ export default function Input({ label, type = 'text', value, onChange, placehold
     </div>
   )
 }
+

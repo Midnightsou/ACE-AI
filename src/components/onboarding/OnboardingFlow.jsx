@@ -49,7 +49,7 @@ export default function OnboardingFlow() {
         )}
       </div>
       <main className="flex flex-1 flex-col items-center justify-center px-6 text-center">
-        <div key={i} className="grim-float">
+        <div key={i}>
           <GrimMascot mood={s.mood} size={190} />
         </div>
         <h1 className="mt-6 text-3xl font-bold tracking-tight text-zinc-900 dark:text-white">{s.title}</h1>

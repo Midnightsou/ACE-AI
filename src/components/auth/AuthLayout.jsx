@@ -1,18 +1,28 @@
+import { Link } from 'react-router-dom'
+import { useUserStore } from '../../store/userStore'
+
 export function AuthLogo({ size = 48 }) {
+  const user = useUserStore((s) => s.user)
   return (
-    <div
-      className="mx-auto overflow-hidden bg-white ring-1 ring-zinc-200 shadow-[0_1px_2px_rgba(0,0,0,0.06)]"
-      style={{ width: size, height: size, borderRadius: 14 }}
+    <Link
+      to={user ? '/chat' : '/'}
+      aria-label={user ? 'Back to chat' : 'Back to home'}
+      className="mx-auto block w-fit rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-600 focus-visible:ring-offset-2"
     >
-      <img
-        src="/logo.png"
-        alt="Ace AI"
-        width={size}
-        height={size}
-        className="h-full w-full object-cover"
-        draggable={false}
-      />
-    </div>
+      <div
+        className="overflow-hidden bg-white ring-1 ring-zinc-200 shadow-[0_1px_2px_rgba(0,0,0,0.06)]"
+        style={{ width: size, height: size, borderRadius: 14 }}
+      >
+        <img
+          src="/logo.png"
+          alt="Ace AI"
+          width={size}
+          height={size}
+          className="h-full w-full object-cover"
+          draggable={false}
+        />
+      </div>
+    </Link>
   )
 }
 
@@ -100,7 +110,7 @@ export default function AuthLayout({ eyebrow, title, subtitle, children, footer,
           {/* Brand */}
           <div className="mb-6 text-center">
             {mascot ? (
-              <div className="grim-float flex justify-center [@media(max-height:620px)]:hidden" aria-hidden="true">
+              <div className="flex justify-center [@media(max-height:620px)]:hidden" aria-hidden="true">
                 {mascot}
               </div>
             ) : (

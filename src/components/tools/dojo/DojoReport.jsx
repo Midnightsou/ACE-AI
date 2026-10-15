@@ -38,30 +38,30 @@ export default function DojoReport() {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="px-6 py-4 border-b border-zinc-100 flex items-center justify-between flex-shrink-0">
-        <div>
-          <p className="text-sm font-semibold text-zinc-800">📊 Research Report</p>
+      <div className="px-4 py-4 sm:px-6 border-b border-zinc-100 flex items-center justify-between gap-3 flex-shrink-0">
+        <div className="min-w-0">
+          <p className="text-sm font-semibold text-zinc-800">Research Report</p>
           <p className="text-xs text-zinc-400 mt-0.5">Professional synthesis of all sources</p>
         </div>
         {content && !isGenerating && (
-          <div className="flex items-center gap-3">
-            <button onClick={handleCopy} className="text-xs text-zinc-400 hover:text-violet-600 transition-colors">
+          <div className="flex flex-shrink-0 items-center gap-1">
+            <button onClick={handleCopy} className="min-h-11 px-2 text-xs text-zinc-400 hover:text-violet-600 transition-colors">
               Copy
             </button>
-            <button onClick={handleDownload} className="text-xs text-zinc-400 hover:text-violet-600 transition-colors">
-              Download
+            <button onClick={handleDownload} className="min-h-11 px-2 text-xs text-zinc-400 hover:text-violet-600 transition-colors">
+              Save
             </button>
             <button
               onClick={() => generateContent('report', buildReportPrompt)}
-              className="text-xs text-zinc-400 hover:text-violet-600 transition-colors"
+              className="min-h-11 px-2 text-xs text-zinc-400 hover:text-violet-600 transition-colors"
             >
-              Regenerate
+              Retry
             </button>
           </div>
         )}
       </div>
 
-      <div className="flex-1 overflow-y-auto px-6 py-5">
+      <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-6 sm:py-5">
         {!content && !isGenerating && (
           <div className="flex flex-col items-center justify-center h-full gap-4 text-center">
             <div className="w-14 h-14 bg-violet-50 rounded-2xl flex items-center justify-center text-2xl">📊</div>
@@ -97,7 +97,7 @@ export default function DojoReport() {
 
         {content && !isGenerating && (
           <div className="bg-white border border-zinc-100 rounded-2xl shadow-sm overflow-hidden">
-            <div className="px-8 py-6 border-b border-zinc-50">
+            <div className="px-4 py-5 sm:px-8 sm:py-6 border-b border-zinc-50">
               <div className="flex items-center gap-2 mb-3">
                 <span className="text-xs bg-violet-100 text-violet-600 px-2 py-0.5 rounded-full font-medium">
                   Research Report
@@ -107,7 +107,7 @@ export default function DojoReport() {
                 </span>
               </div>
             </div>
-            <div className="px-8 py-6">
+            <div className="px-4 py-5 sm:px-8 sm:py-6">
               {content.split('\n').map((line, i) => {
                 if (!line.trim()) return <div key={i} className="h-3" />
                 const isHeader = line.length < 60 &&

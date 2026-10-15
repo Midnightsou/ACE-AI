@@ -1,19 +1,9 @@
-import { useState, useEffect } from 'react'
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
+import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism'
 import { useToast } from '../../components/ui/Toast'
 
-export default function CodeBlock({ code, language }) {
+export default function CodeBlock({ code = '', language }) {
   const { toast } = useToast()
-  const [SyntaxHighlighter, setSyntaxHighlighter] = useState(null)
-  const [style, setStyle] = useState(null)
-
-  useEffect(() => {
-    import('react-syntax-highlighter').then((mod) => {
-      setSyntaxHighlighter(() => mod.Prism)
-    })
-    import('react-syntax-highlighter/dist/esm/styles/prism').then((mod) => {
-      setStyle(() => mod.oneDark)
-    })
-  }, [])
 
   async function handleCopy() {
     await navigator.clipboard.writeText(code)
@@ -36,10 +26,10 @@ export default function CodeBlock({ code, language }) {
         </button>
       </div>
 
-      {SyntaxHighlighter && style ? (
+      {code ? (
         <SyntaxHighlighter
           language={language || 'text'}
-          style={style}
+          style={oneDark}
           customStyle={{
             margin: 0,
             borderRadius: 0,

@@ -4,6 +4,8 @@ import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
   signOut,
   onAuthStateChanged,
   sendPasswordResetEmail,
@@ -176,6 +178,9 @@ export function useAuth() {
   // first invocation actually subscribes to Firebase.
   useEffect(() => {
     initAuthListener()
+    // Complete a Google redirect sign-in (mobile / in-app browsers).
+    // The auth listener above picks up the signed-in user automatically.
+    getRedirectResult(auth).catch(() => {})
   }, [])
 
   async function signup(email, password) {
@@ -195,10 +200,18 @@ export function useAuth() {
   }
 
   async function loginWithGoogle() {
-    return signInWithPopup(
-      auth,
-      googleProvider
-    )
+    try {
+      return await signInWithPopup(auth, googleProvider)
+    } catch (err) {
+      // Popup blocked / unavailable on iOS Safari + in-app browsers:
+      // fall back to full-page redirect. The page reloads and
+      // getRedirectResult() (above) completes the sign-in.
+      if (err?.code === 'auth/popup-blocked' || err?.code === 'auth/operation-not-supported-in-this-environment') {
+        await signInWithRedirect(auth, googleProvider)
+        return // navigation happens via onAuthStateChanged after reload
+      }
+      throw err
+    }
   }
 
   async function logout() {

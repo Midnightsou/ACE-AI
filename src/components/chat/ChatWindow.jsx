@@ -3,7 +3,6 @@ import { useChat } from '../../hooks/useChat'
 import { useUserStore } from '../../store/userStore'
 import MessageBubble from './MessageBubble'
 import GrimMascot from '../GrimMascot'
-import TypingIndicator from './TypingIndicator'
 import InputBar from './InputBar'
 import FileContextBanner from './FileContextBanner'
 import StreamingBubble from './StreamingBubble'
@@ -109,7 +108,7 @@ export default function ChatWindow() {
           <MessageSkeleton />
         ) : messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center gap-3 pb-12 px-4">
-            <div className="grim-float">
+            <div>
               <GrimMascot mood="think" size={120} />
             </div>
             <div>
@@ -171,9 +170,12 @@ export default function ChatWindow() {
               </div>
             )}
 
-            {/* Loading dots */}
+            {/* Loading — Grim thinks while DeepSeek works */}
             {loading && !streamingContent && !isSearching && (
-              <TypingIndicator />
+              <div className="flex items-center gap-3 px-4 py-3">
+                <GrimMascot mood="think" size={56} />
+                <span className="text-sm text-zinc-500 dark:text-zinc-400">Thinking…</span>
+              </div>
             )}
           </>
         )}

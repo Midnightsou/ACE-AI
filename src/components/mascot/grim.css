@@ -1,0 +1,79 @@
+/* Grim state animations. Imported by GrimMascot.jsx, nothing to paste elsewhere.
+   Rule: idle is subtle; big energy only when a moment earns it. */
+
+.grim-body {
+  transform-box: view-box;
+  transform-origin: 100px 224px; /* feet, so squash & stretch is grounded */
+}
+
+/* welcome / happy / safe: soft breathing */
+.grim-idle { animation: grim-idle 3.2s ease-in-out infinite; }
+
+/* celebrate: anticipation squash, jump, landing squash (3x), then settle */
+.grim-jump {
+  animation:
+    grim-jump 1.4s ease-in-out 3,
+    grim-idle 3.2s ease-in-out 4.2s infinite;
+}
+
+/* think: slow pulse while the AI is working */
+.grim-pulse { animation: grim-pulse 2.2s ease-in-out infinite; }
+
+/* oops: one quick shake, then settle */
+.grim-shake {
+  animation:
+    grim-shake 0.5s ease-in-out 1,
+    grim-idle 3.2s ease-in-out 0.5s infinite;
+}
+
+/* blink */
+.grim-eyes {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: grim-blink 4.8s infinite;
+}
+
+@keyframes grim-idle {
+  0%, 100% { transform: translateY(0) scale(1, 1); }
+  50% { transform: translateY(-4px) scale(0.99, 1.01); }
+}
+@keyframes grim-jump {
+  0%, 100% { transform: translateY(0) scale(1, 1); }
+  12% { transform: translateY(0) scale(1.06, 0.92); }
+  40% { transform: translateY(-14px) scale(0.96, 1.06); }
+  60% { transform: translateY(-14px) scale(1, 1); }
+  80% { transform: translateY(0) scale(1.06, 0.92); }
+  90% { transform: translateY(0) scale(0.98, 1.02); }
+}
+@keyframes grim-pulse {
+  0%, 100% { transform: scale(1) rotate(0deg); }
+  50% { transform: scale(1.03) rotate(-1.5deg); }
+}
+@keyframes grim-shake {
+  0%, 100% { transform: translateX(0) rotate(0deg); }
+  20% { transform: translateX(-4px) rotate(-2deg); }
+  40% { transform: translateX(4px) rotate(2deg); }
+  60% { transform: translateX(-3px) rotate(-1deg); }
+  80% { transform: translateX(2px) rotate(1deg); }
+}
+@keyframes grim-blink {
+  0%, 93%, 100% { transform: scaleY(1); }
+  96% { transform: scaleY(0.1); }
+}
+
+.grim-hopping { animation: grim-scroll-hop 0.32s ease-in-out infinite; transform-origin: 50% 100%; }
+@keyframes grim-scroll-hop {
+  0%, 100% { transform: translateY(0) scale(1.06, 0.92); }
+  50% { transform: translateY(-22px) scale(0.96, 1.06); }
+}
+.grim-squish { animation: grim-squish 0.35s ease-out; transform-origin: 50% 100%; }
+@keyframes grim-squish {
+  0% { transform: scale(1, 1); }
+  30% { transform: scale(1.14, 0.82); }
+  65% { transform: scale(0.94, 1.1); }
+  100% { transform: scale(1, 1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .grim-idle, .grim-jump, .grim-pulse, .grim-shake, .grim-eyes { animation: none; }
+  .grim-hopping, .grim-squish { animation: none; }
+}

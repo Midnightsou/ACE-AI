@@ -67,32 +67,32 @@ export default function DojoPodcast() {
     <div className="flex flex-col h-full">
 
       {/* Header */}
-      <div className="px-6 py-4 border-b border-zinc-100 flex items-center justify-between flex-shrink-0">
-        <div>
-          <p className="text-sm font-semibold text-zinc-800">🎙 AI Podcast</p>
+      <div className="px-4 py-4 sm:px-6 border-b border-zinc-100 flex items-center justify-between gap-3 flex-shrink-0">
+        <div className="min-w-0">
+          <p className="text-sm font-semibold text-zinc-800">Podcast</p>
           <p className="text-xs text-zinc-400 mt-0.5">
-            Alex and Sam discuss your sources naturally · Powered by browser voices
+            Alex and Sam discuss your sources naturally
           </p>
         </div>
         {script && (
-          <div className="flex items-center gap-3">
+          <div className="flex flex-shrink-0 items-center gap-1">
             <button
               onClick={handleCopyScript}
-              className="text-xs text-zinc-400 hover:text-violet-600 transition-colors"
+              className="min-h-11 px-2 text-xs text-zinc-400 hover:text-violet-600 transition-colors"
             >
-              Copy script
+              Copy
             </button>
             <button
               onClick={handleDownloadScript}
-              className="text-xs text-zinc-400 hover:text-violet-600 transition-colors"
+              className="min-h-11 px-2 text-xs text-zinc-400 hover:text-violet-600 transition-colors"
             >
-              Download
+              Save
             </button>
           </div>
         )}
       </div>
 
-      <div className="flex-1 overflow-y-auto px-6 py-5 flex flex-col gap-5">
+      <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-6 sm:py-5 flex flex-col gap-5">
 
         {error && (
           <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm text-red-600">

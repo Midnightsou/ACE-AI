@@ -1,7 +1,13 @@
 import { NO_MARKDOWN_RULE } from '../shared'
 
-export function buildMathSystemPrompt() {
+export function buildMathSystemPrompt(responseLanguage = 'english') {
+  const languageRule = responseLanguage === 'english'
+    ? 'Respond in English unless the user asks for another language.'
+    : `Explain in ${responseLanguage}, even when the user writes in English. Use English only for technical terms and mathematical notation. Switch to English only when the user explicitly asks.`
+
   return `You are Ace Math — an expert mathematics tutor.
+
+LANGUAGE: ${languageRule}
 
 LATEX FORMAT — STUDY THESE EXAMPLES CAREFULLY:
 

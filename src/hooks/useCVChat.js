@@ -4,8 +4,11 @@ import {
   streamCompletion,
   MODELS,
 } from '../services/deepseekClient'
+import { useUserStore } from '../store/userStore'
+import { buildPreferredLanguageInstruction } from '../prompts/language'
 
 export function useCVChat(onCVUpdate) {
+  const user = useUserStore((s) => s.user)
   const [messages, setMessages] = useState([])
   const [loading, setLoading] = useState(false)
   const [input, setInput] = useState('')
@@ -49,7 +52,7 @@ The user will ask you to make specific changes. When they do:
         messages: [
           {
             role: 'system',
-            content: systemPrompt,
+            content: `${systemPrompt}\n\n${buildPreferredLanguageInstruction(user?.profile?.language)}`,
           },
 
           ...newMessages,

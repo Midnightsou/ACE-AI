@@ -4,6 +4,8 @@ import { useCodex } from '../../hooks/useCodex'
 import { useCodexStore } from '../../store/codexStore'
 import CodexMessage from './CodexMessage'
 import ToolMessageBubble from './ToolMessageBubble'
+import ChatInputActions from '../chat/ChatInputActions'
+import VoiceCallMode from '../voice/VoiceCallMode'
 
 const LANGUAGE_OPTIONS = [
   { value: 'auto', label: 'Auto detect' },
@@ -32,7 +34,7 @@ const QUICK_STARTS = [
   'Explain how async/await works in JavaScript',
 ]
 
-export default function Codex() {
+export default function Codex({ onOpenMenu }) {
   const {
     messages,
     streamingContent,
@@ -49,6 +51,7 @@ export default function Codex() {
   const location = useLocation()
   const [input, setInput] = useState('')
   const [showLangPicker, setShowLangPicker] = useState(false)
+  const [voiceOpen, setVoiceOpen] = useState(false)
   const bottomRef = useRef(null)
   const inputRef = useRef(null)
 
@@ -89,6 +92,15 @@ export default function Codex() {
 
       {/* Header */}
       <div className="flex items-center gap-3 px-4 py-3 bg-white border-b border-zinc-100 flex-shrink-0">
+        <button
+          onClick={onOpenMenu}
+          aria-label="Open menu"
+          className="flex h-10 w-10 items-center justify-center rounded-xl text-zinc-500 hover:bg-zinc-100 md:hidden"
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+            <path d="M3 12h18M3 6h18M3 18h18"/>
+          </svg>
+        </button>
         <div className="w-8 h-8 bg-zinc-900 rounded-xl flex items-center justify-center flex-shrink-0">
           <span className="text-white text-xs font-bold font-mono">{'</>'}</span>
         </div>
@@ -237,6 +249,12 @@ export default function Codex() {
             className="flex-1 bg-transparent text-sm text-zinc-800 placeholder:text-zinc-400 outline-none resize-none max-h-40 py-1 disabled:opacity-50 font-sans"
             style={{ scrollbarWidth: 'none' }}
           />
+          <ChatInputActions
+            value={input}
+            onChange={setInput}
+            disabled={loading}
+            onVoiceClick={() => setVoiceOpen(true)}
+          />
           <button
             onClick={handleSend}
             disabled={loading || !input.trim()}
@@ -252,6 +270,7 @@ export default function Codex() {
           Enter to send · Shift+Enter for new line.
         </p>
       </div>
+      {voiceOpen && <VoiceCallMode onClose={() => setVoiceOpen(false)} />}
     </div>
   )
 }

@@ -1,5 +1,7 @@
-import { memo, useState, useRef } from 'react'
+import { memo, useState, useRef, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useUserStore } from '../../store/userStore'
+import { useToast } from '../ui/Toast'
 
 function SourceCard({ citation }) {
   return (
@@ -99,12 +101,35 @@ function renderMessageContent(content) {
   )
 }
 
-const MessageBubble = memo(function MessageBubble({ message, index, onEdit }) {
+function formatCountdown(milliseconds) {
+  const totalSeconds = Math.max(0, Math.ceil(milliseconds / 1000))
+  const hours = Math.floor(totalSeconds / 3600)
+  const minutes = Math.floor((totalSeconds % 3600) / 60)
+  const seconds = totalSeconds % 60
+  return `${hours}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
+}
+
+const MessageBubble = memo(function MessageBubble({ message, index, onEdit, onVersionChange, onShare, sharing }) {
   const user = useUserStore((s) => s.user)
+  const navigate = useNavigate()
+  const { toast } = useToast()
   const isUser = message.role === 'user'
   const [editing, setEditing] = useState(false)
   const [editText, setEditText] = useState(message.content)
+  const [copying, setCopying] = useState(false)
   const textareaRef = useRef(null)
+  const [now, setNow] = useState(null)
+  const versions = message.versions || []
+  const versionIndex = message.versionIndex ?? versions.length - 1
+  const cooldownTime = typeof message.cooldownUntil === 'number'
+    ? message.cooldownUntil
+    : Date.parse(message.cooldownUntil)
+
+  useEffect(() => {
+    if (!message.cooldownUntil) return undefined
+    const timer = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(timer)
+  }, [message.cooldownUntil])
 
   function handleEditStart() {
     setEditText(message.content)
@@ -134,6 +159,18 @@ const MessageBubble = memo(function MessageBubble({ message, index, onEdit }) {
     if (e.key === 'Escape') handleEditCancel()
   }
 
+  async function handleCopy() {
+    setCopying(true)
+    try {
+      await navigator.clipboard.writeText(message.content || '')
+      toast.success('Message copied')
+    } catch {
+      toast.error('Failed to copy message')
+    } finally {
+      setCopying(false)
+    }
+  }
+
   return (
     <div className={`flex ${isUser ? 'justify-end' : 'justify-start'} mb-3 group`}>
       {!isUser && (
@@ -142,7 +179,7 @@ const MessageBubble = memo(function MessageBubble({ message, index, onEdit }) {
         </div>
       )}
 
-      <div className="flex flex-col items-end gap-1 max-w-[75%]">
+      <div className={`flex flex-col gap-1 max-w-[75%] ${isUser ? 'items-end' : 'items-start'}`}>
         {editing ? (
           <div className="w-full flex flex-col gap-2">
             <textarea
@@ -180,21 +217,87 @@ const MessageBubble = memo(function MessageBubble({ message, index, onEdit }) {
                 }`}
             >
               {renderMessageContent(message.content)}
+              {message.cooldownUntil && now && cooldownTime > now && (
+                <p className="mt-3 text-xs font-medium text-amber-700">
+                  Recharge timer: {formatCountdown(cooldownTime - now)}
+                </p>
+              )}
+              {message.showUpgrade && (
+                <button
+                  onClick={() => navigate('/pricing')}
+                  className="mt-3 rounded-lg bg-violet-600 px-3 py-2 text-xs font-semibold text-white hover:bg-violet-700"
+                >
+                  Upgrade to Pro or Premium
+                </button>
+              )}
             </div>
 
-            {/* Edit button — only for user messages */}
-            {isUser && (
+            <div className={`flex items-center gap-2 mx-1 ${isUser ? 'justify-end' : 'justify-start'}`}>
               <button
-                onClick={handleEditStart}
-                className="text-xs text-zinc-400 hover:text-zinc-600 transition-colors opacity-0 group-hover:opacity-100 flex items-center gap-1 mr-1"
+                onClick={handleCopy}
+                disabled={copying}
+                title="Copy message"
+                aria-label="Copy message"
+                className="text-xs text-zinc-400 hover:text-zinc-700 transition-colors disabled:opacity-40"
               >
-                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                  <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/>
-                  <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="8" y="8" width="13" height="13" rx="2"/>
+                  <path d="M16 8V5a2 2 0 00-2-2H5a2 2 0 00-2 2v9a2 2 0 002 2h3"/>
                 </svg>
-                Edit
               </button>
-            )}
+              {!isUser && (
+                <button
+                  onClick={() => onShare?.(message)}
+                  disabled={sharing}
+                  title="Share message"
+                  aria-label="Share message"
+                  className="text-xs text-zinc-400 hover:text-zinc-700 transition-colors disabled:opacity-40"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
+                    <path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/>
+                  </svg>
+                </button>
+              )}
+
+              {/* Edit button — only for user messages */}
+              {isUser && (
+                <>
+                  {versions.length > 1 && (
+                    <div className="flex items-center gap-1 text-xs text-zinc-400">
+                      <button
+                        onClick={() => onVersionChange?.(index, versionIndex - 1)}
+                        disabled={versionIndex <= 0}
+                        aria-label="Show previous message version"
+                        className="rounded px-1 hover:bg-zinc-100 disabled:opacity-30"
+                      >
+                        ‹
+                      </button>
+                      <span>{versionIndex + 1}/{versions.length}</span>
+                      <button
+                        onClick={() => onVersionChange?.(index, versionIndex + 1)}
+                        disabled={versionIndex >= versions.length - 1}
+                        aria-label="Show next message version"
+                        className="rounded px-1 hover:bg-zinc-100 disabled:opacity-30"
+                      >
+                        ›
+                      </button>
+                    </div>
+                  )}
+                  <button
+                    onClick={handleEditStart}
+                    title="Edit message"
+                    aria-label="Edit message"
+                    className="text-zinc-400 hover:text-zinc-700 transition-colors"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+                      <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/>
+                      <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                    </svg>
+                  </button>
+                </>
+              )}
+            </div>
           </>
         )}
       </div>

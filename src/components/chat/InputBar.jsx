@@ -1,8 +1,9 @@
 import { useState, useRef } from 'react'
 import FileUpload from '../ui/FileUpload'
+import ChatInputActions from './ChatInputActions'
 import { useAutoResize } from '../../hooks/useAutoResize'
 
-export default function InputBar({ onSend, onFileExtracted, disabled }) {
+export default function InputBar({ onSend, onFileExtracted, onVoiceClick, disabled }) {
   const [text, setText] = useState('')
   const textareaRef = useRef(null)
   useAutoResize(textareaRef, text)
@@ -35,6 +36,12 @@ export default function InputBar({ onSend, onFileExtracted, disabled }) {
           rows={1}
           className="flex-1 bg-transparent text-sm text-zinc-800 placeholder:text-zinc-400 outline-none resize-none max-h-48 py-2 disabled:opacity-50"
           style={{ scrollbarWidth: 'none', overflowY: 'hidden' }}
+        />
+        <ChatInputActions
+          value={text}
+          onChange={setText}
+          disabled={disabled}
+          onVoiceClick={onVoiceClick}
         />
         <button
           onClick={handleSend}

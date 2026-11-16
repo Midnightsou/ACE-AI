@@ -12,6 +12,7 @@ import { useDojoStore } from '../store/dojoStore'
 import { useUserStore } from '../store/userStore'
 
 import { buildDojoChatPrompt } from '../prompts/tools/dojoPrompt'
+import { buildPreferredLanguageInstruction } from '../prompts/language'
 import {
   loadToolMessages,
   saveDojoSession,
@@ -236,8 +237,9 @@ export function useDojo() {
       `Dojo — ${text.slice(0, 40)}`
 
     try {
-      const systemPrompt =
-        buildDojoChatPrompt(readySources)
+      const systemPrompt = `${buildDojoChatPrompt(readySources)}
+
+${buildPreferredLanguageInstruction(user?.profile?.language)}`
 
       const cleanHistory =
         [...messages]

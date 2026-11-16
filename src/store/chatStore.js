@@ -20,6 +20,13 @@ export const useChatStore = create((set) => ({
       return { messages }
     }),
 
+  setMessageId: (target, id) =>
+    set((state) => ({
+      messages: state.messages.map((message) =>
+        message === target ? { ...message, id } : message
+      ),
+    })),
+
   truncateFrom: (index) =>
     set((state) => ({ messages: state.messages.slice(0, index) })),
 

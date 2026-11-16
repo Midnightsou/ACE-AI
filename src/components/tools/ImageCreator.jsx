@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { useImageCreator } from '../../hooks/useImageCreator'
 import ImageMessage from './ImageMessage'
+import ChatInputActions from '../chat/ChatInputActions'
 import { stylePresets, aspectRatios } from '../../prompts/tools/imagePrompt'
 
 const QUICK_PROMPTS = [
@@ -12,7 +13,7 @@ const QUICK_PROMPTS = [
   'A peaceful village in Yorubaland at golden hour',
 ]
 
-export default function ImageCreator() {
+export default function ImageCreator({ onOpenMenu }) {
   const { messages, loading, enhancing, generate, regenerate, clearMessages } = useImageCreator()
 
   const [prompt, setPrompt] = useState('')
@@ -53,6 +54,15 @@ export default function ImageCreator() {
 
       {/* Header */}
       <div className="flex items-center gap-3 px-4 py-3 bg-white border-b border-zinc-100 flex-shrink-0">
+        <button
+          onClick={onOpenMenu}
+          aria-label="Open menu"
+          className="flex h-10 w-10 items-center justify-center rounded-xl text-zinc-500 hover:bg-zinc-100 md:hidden"
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+            <path d="M3 12h18M3 6h18M3 18h18"/>
+          </svg>
+        </button>
         <div className="w-8 h-8 bg-gradient-to-br from-violet-500 to-pink-500 rounded-xl flex items-center justify-center flex-shrink-0">
           <span className="text-white text-sm">🎨</span>
         </div>
@@ -243,6 +253,8 @@ export default function ImageCreator() {
             className="flex-1 bg-transparent text-sm text-zinc-800 placeholder:text-zinc-400 outline-none resize-none max-h-32 py-1 disabled:opacity-50"
             style={{ scrollbarWidth: 'none' }}
           />
+
+          <ChatInputActions value={prompt} onChange={setPrompt} disabled={loading} />
 
           {/* Settings toggle */}
           <button

@@ -11,8 +11,11 @@ import {
   limit,
   serverTimestamp,
   increment,
+  runTransaction,
+  getCountFromServer,
 } from 'firebase/firestore'
 import { db } from './firebase'
+import { getUserPlan } from '../config/pricing'
 
 const conversationCache = new Map()
 const CACHE_TTL = 30000
@@ -53,22 +56,58 @@ export async function createConversation(uid, title) {
 
 export async function saveMessage(uid, convId, message) {
   const ref = collection(db, 'students', uid, 'conversations', convId, 'messages')
-  await addDoc(ref, {
+  const saved = await addDoc(ref, {
     role: message.role,
     content: message.content,
+    ...(message.versions ? { versions: message.versions } : {}),
     createdAt: serverTimestamp(),
   })
   await updateDoc(doc(db, 'students', uid, 'conversations', convId), {
     updatedAt: serverTimestamp(),
   })
   invalidateConversationCache(uid)
+  return saved.id
 }
 
 export async function loadMessages(uid, convId) {
   const ref = collection(db, 'students', uid, 'conversations', convId, 'messages')
-  const q = query(ref, orderBy('createdAt', 'asc'), limit(100))
+  const q = query(ref, orderBy('createdAt', 'desc'), limit(100))
   const snap = await getDocs(q)
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+  return snap.docs.reverse().map((d) => ({ id: d.id, ...d.data() }))
+}
+
+export async function loadConversationSummary(uid, convId) {
+  const conversationRef = doc(db, 'students', uid, 'conversations', convId)
+  const messagesRef = collection(db, 'students', uid, 'conversations', convId, 'messages')
+  const [snap, countSnap] = await Promise.all([
+    getDoc(conversationRef),
+    getCountFromServer(messagesRef),
+  ])
+  if (!snap.exists()) {
+    return { summary: '', summarizedMessageCount: 0, messageCount: countSnap.data().count }
+  }
+  const data = snap.data()
+  return {
+    summary: data.summary || '',
+    summarizedMessageCount: data.summarizedMessageCount || 0,
+    messageCount: countSnap.data().count,
+  }
+}
+
+export async function updateConversationSummary(uid, convId, summary, summarizedMessageCount) {
+  await updateDoc(doc(db, 'students', uid, 'conversations', convId), {
+    summary,
+    summarizedMessageCount,
+    updatedAt: serverTimestamp(),
+  })
+  invalidateConversationCache(uid)
+}
+
+export async function updateMessage(uid, convId, messageId, changes) {
+  await updateDoc(
+    doc(db, 'students', uid, 'conversations', convId, 'messages', messageId),
+    changes
+  )
 }
 
 export async function updateConversationTitle(uid, convId, title) {
@@ -186,6 +225,19 @@ export async function getMessageCount(uid) {
   const snap = await getDoc(doc(db, 'students', uid))
   if (!snap.exists()) return 0
   const data = snap.data()
+  const cooldownUntil = Date.parse(data.messageCooldownUntil || '')
+  if (Number.isFinite(cooldownUntil) && cooldownUntil > Date.now()) {
+    return data.dailyMessageCount || 0
+  }
+
+  if (Number.isFinite(cooldownUntil) && cooldownUntil <= Date.now()) {
+    await updateDoc(doc(db, 'students', uid), {
+      dailyMessageCount: 0,
+      lastMessageReset: new Date().toDateString(),
+      messageCooldownUntil: null,
+    })
+    return 0
+  }
 
   // Reset count if it's a new day
   const today = new Date().toDateString()
@@ -198,6 +250,81 @@ export async function getMessageCount(uid) {
   }
 
   return data.dailyMessageCount || 0
+}
+
+export async function reserveMessageSlot(uid) {
+  const userRef = doc(db, 'students', uid)
+  const now = Date.now()
+  const today = new Date(now).toDateString()
+
+  return runTransaction(db, async (transaction) => {
+    const snap = await transaction.get(userRef)
+    if (!snap.exists()) throw new Error('Cannot reserve a message for a missing profile.')
+
+    const data = snap.data()
+    const plan = getUserPlan(data)
+    const currentCount = data.dailyMessageCount || 0
+    const cooldownUntil = Date.parse(data.messageCooldownUntil || '')
+
+    if (data.isAdmin || data.isTester) {
+      return { allowed: true, count: currentCount, cooldownUntil: null, planId: plan.id }
+    }
+
+    if (plan.id === 'free' && Number.isFinite(cooldownUntil) && cooldownUntil > now) {
+      return {
+        allowed: false,
+        count: currentCount,
+        cooldownUntil,
+        planId: plan.id,
+        limit: plan.limits.dailyMessages,
+      }
+    }
+
+    const isNewDay = data.lastMessageReset !== today
+    const count = isNewDay || (
+      plan.id === 'free' &&
+      Number.isFinite(cooldownUntil) &&
+      cooldownUntil <= now
+    )
+      ? 0
+      : currentCount
+
+    if (plan.limits.dailyMessages !== Infinity && count >= plan.limits.dailyMessages) {
+      const nextCooldown = plan.id === 'free' ? now + 5 * 60 * 60 * 1000 : null
+      transaction.update(userRef, {
+        dailyMessageCount: count,
+        lastMessageReset: today,
+        ...(nextCooldown ? { messageCooldownUntil: new Date(nextCooldown).toISOString() } : {}),
+      })
+      return {
+        allowed: false,
+        count,
+        cooldownUntil: nextCooldown,
+        planId: plan.id,
+        limit: plan.limits.dailyMessages,
+      }
+    }
+
+    const nextCount = count + 1
+    const nextCooldown = plan.id === 'free' && nextCount >= plan.limits.dailyMessages
+      ? now + 5 * 60 * 60 * 1000
+      : null
+
+    transaction.update(userRef, {
+      dailyMessageCount: nextCount,
+      lastMessageReset: today,
+      lastActive: new Date(now).toISOString(),
+      messageCooldownUntil: nextCooldown ? new Date(nextCooldown).toISOString() : null,
+    })
+
+    return {
+      allowed: true,
+      count: nextCount,
+      cooldownUntil: nextCooldown,
+      planId: plan.id,
+      limit: plan.limits.dailyMessages,
+    }
+  })
 }
 
 export async function incrementMessageCount(uid) {

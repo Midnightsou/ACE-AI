@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from 'react'
 import { useAutoResize } from '../../../hooks/useAutoResize'
 import { useDojo } from '../../../hooks/useDojo'
+import ChatInputActions from '../../chat/ChatInputActions'
+import VoiceCallMode from '../../voice/VoiceCallMode'
 
 const QUICK_QUESTIONS = [
   'Summarize the main points from all sources',
@@ -13,6 +15,7 @@ const QUICK_QUESTIONS = [
 export default function DojoChat() {
   const { messages, streamingContent, loading, sendMessage, readySources } = useDojo()
   const [input, setInput] = useState('')
+  const [voiceOpen, setVoiceOpen] = useState(false)
   const bottomRef = useRef(null)
   const inputRef = useRef(null)
   useAutoResize(inputRef, input)
@@ -144,6 +147,12 @@ export default function DojoChat() {
             className="flex-1 bg-transparent text-sm text-zinc-800 placeholder:text-zinc-400 outline-none resize-none max-h-32 py-1 disabled:opacity-50"
             style={{ scrollbarWidth: 'none' }}
           />
+          <ChatInputActions
+            value={input}
+            onChange={setInput}
+            disabled={loading || readySources.length === 0}
+            onVoiceClick={() => setVoiceOpen(true)}
+          />
           <button
             onClick={handleSend}
             disabled={loading || !input.trim() || readySources.length === 0}
@@ -161,6 +170,7 @@ export default function DojoChat() {
             : 'Add sources to start chatting'}
         </p>
       </div>
+      {voiceOpen && <VoiceCallMode onClose={() => setVoiceOpen(false)} />}
     </div>
   )
 }

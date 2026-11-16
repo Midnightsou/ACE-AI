@@ -46,6 +46,7 @@ export default function ProfilePage() {
   const [name, setName] = useState(user?.profile?.name || '')
   const [language, setLanguage] = useState(user?.profile?.language || 'english')
   const [saving, setSaving] = useState(false)
+  const [languageSaving, setLanguageSaving] = useState(false)
   const [error, setError] = useState(null)
   
   const [currentPassword, setCurrentPassword] = useState('')
@@ -70,6 +71,23 @@ export default function ProfilePage() {
       console.error(err)
     } finally {
       setSaving(false)
+    }
+  }
+
+  async function handleLanguageSelect(code) {
+    const previousLanguage = language
+    setLanguage(code)
+    setLanguageSaving(true)
+    try {
+      await updateProfile(user.uid, { language: code })
+      setUser({ ...user, profile: { ...user.profile, language: code } })
+      toast.success(`Language changed to ${languages.find((item) => item.code === code)?.label || code}`)
+    } catch (err) {
+      setLanguage(previousLanguage)
+      toast.error('Failed to save language. Check your connection.')
+      console.error(err)
+    } finally {
+      setLanguageSaving(false)
     }
   }
 
@@ -238,10 +256,10 @@ export default function ProfilePage() {
                 <div className="rounded-xl bg-violet-50 border border-violet-100 px-4 py-3">
                   <p className="text-sm font-medium text-zinc-800">
                     {user?.profile?.plan === 'proPlus'
-                      ? 'Pro+ — Unlimited everything'
+                      ? 'Premium — Unlimited everything'
                       : user?.profile?.plan === 'pro' || user?.profile?.isPro
                         ? 'Pro — 200 messages/day'
-                        : 'Free — 20 messages/day'
+                        : 'Free — 20 messages, then a 5-hour cooldown'
                     }
                   </p>
                 </div>
@@ -308,7 +326,8 @@ export default function ProfilePage() {
                 {languages.map((lang) => (
                   <button
                     key={lang.code}
-                    onClick={() => setLanguage(lang.code)}
+                    onClick={() => handleLanguageSelect(lang.code)}
+                    disabled={languageSaving}
                     className={`flex items-center gap-3 px-4 py-3 rounded-xl border text-sm transition-all text-left
                       ${language === lang.code
                         ? 'border-violet-400 bg-violet-50 text-violet-700'
@@ -333,7 +352,7 @@ export default function ProfilePage() {
               <div className="divide-y divide-zinc-50">
                 {[
                   { label: 'Member since', value: user?.profile?.createdAt ? new Date(user.profile.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : 'Unknown' },
-                  { label: 'Plan', value: user?.profile?.isPro ? 'Pro' : 'Free' },
+                  { label: 'Plan', value: user?.profile?.plan === 'proPlus' ? 'Premium' : user?.profile?.isPro ? 'Pro' : 'Free' },
                   { label: 'User ID', value: user?.uid?.slice(0, 12) + '...' },
                 ].map(({ label, value }) => (
                   <div key={label} className="flex items-center justify-between px-5 py-3.5">
@@ -351,7 +370,14 @@ export default function ProfilePage() {
               </div>
               <div className="p-5 flex flex-col gap-3">
                 <button
-                  onClick={() => { try { localStorage.removeItem('ace_tour_done') } catch {} navigate('/onboarding') }}
+                  onClick={() => {
+                    try {
+                      localStorage.removeItem('ace_tour_done')
+                    } catch (err) {
+                      console.warn('Unable to reset onboarding tour:', err)
+                    }
+                    navigate('/onboarding')
+                  }}
                   className="w-full py-3 border border-zinc-200 hover:border-violet-300 hover:bg-violet-50 text-zinc-700 text-sm font-medium rounded-xl transition-colors flex items-center justify-center gap-2"
                 >
                   Replay tour

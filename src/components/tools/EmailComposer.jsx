@@ -4,6 +4,7 @@ import { useEmailStore } from '../../store/emailStore'
 import { useToolSession } from '../../hooks/useToolSession'
 import ToolLayout from './ToolLayout'
 import EmailPreview from './EmailPreview'
+import ChatInputActions from '../chat/ChatInputActions'
 import {
   buildEmailPrompt,
   toneOptions,
@@ -349,6 +350,7 @@ Keep the SUBJECT: format on the first line. Plain text only.`
                     placeholder="Ask Ace to tweak the email..."
                     disabled={chatLoading}
                     className="flex-1 bg-transparent text-xs text-zinc-800 placeholder:text-zinc-400 outline-none disabled:opacity-50" />
+                  <ChatInputActions value={chatInput} onChange={setChatInput} disabled={chatLoading} />
                   <button onClick={handleChatSend} disabled={chatLoading || !chatInput.trim()}
                     className="w-6 h-6 bg-violet-600 hover:bg-violet-700 disabled:opacity-40 rounded-lg flex items-center justify-center transition-colors">
                     <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round">

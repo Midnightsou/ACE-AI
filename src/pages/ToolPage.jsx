@@ -60,7 +60,9 @@ export default function ToolPage() {
         <div className="flex-1 overflow-hidden">
           <Suspense fallback={<ToolSpinner />}>
             <ErrorBoundary key={toolId}>
-              {ToolComponent ? <ToolComponent /> : <ComingSoon tool={tool} />}
+              {ToolComponent
+                ? <ToolComponent onOpenMenu={() => setSidebarOpen(true)} />
+                : <ComingSoon tool={tool} />}
             </ErrorBoundary>
           </Suspense>
         </div>

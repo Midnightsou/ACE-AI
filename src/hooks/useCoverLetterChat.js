@@ -4,8 +4,11 @@ import {
   streamCompletion,
   MODELS,
 } from '../services/deepseekClient'
+import { useUserStore } from '../store/userStore'
+import { buildPreferredLanguageInstruction } from '../prompts/language'
 
 export function useCoverLetterChat(onUpdate) {
+  const user = useUserStore((s) => s.user)
   const [messages, setMessages] = useState([])
   const [loading, setLoading] = useState(false)
   const [input, setInput] = useState('')
@@ -51,7 +54,7 @@ When the user asks for changes:
         messages: [
           {
             role: 'system',
-            content: systemPrompt,
+            content: `${systemPrompt}\n\n${buildPreferredLanguageInstruction(user?.profile?.language)}`,
           },
 
           ...newMessages,

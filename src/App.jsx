@@ -18,7 +18,7 @@ import NetworkBanner from './components/ui/NetworkBanner'
 
 export default function App() {
   const user = useUserStore((s) => s.user)
-  const theme = useThemeStore((s) => s.theme)
+  const resolvedTheme = useThemeStore((s) => s.resolvedTheme)
   const clearMessages = useChatStore((s) => s.clearMessages)
   const clearConversations = useConversationStore((s) => s.clearConversations)
   const resetCVMaker = useCVMakerStore((s) => s.reset)
@@ -50,8 +50,8 @@ export default function App() {
   }, [user?.uid]) // key on uid specifically — fires when account switches
 
   useEffect(() => {
-    document.documentElement.classList.toggle('dark', theme === 'dark')
-  }, [theme])
+    document.documentElement.classList.toggle('dark', resolvedTheme === 'dark')
+  }, [resolvedTheme])
 
   function handleSplashComplete() {
     sessionStorage.setItem('splashShown', 'true')

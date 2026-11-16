@@ -1,12 +1,16 @@
 import { useRef, useState, useEffect } from 'react'
 import { useEssayStore } from '../../store/essayStore'
 import { useEssayChat } from '../../hooks/useEssayChat'
+import ChatInputActions from '../chat/ChatInputActions'
 import { useLocation } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { useToolSession } from '../../hooks/useToolSession'
 import ToolLayout from './ToolLayout'
 import { buildOutlinePrompt, buildSectionPrompt } from '../../prompts/tools/essayPrompt'
 import { getToolById } from '../../tools/registry'
 import { streamCompletion, MODELS } from '../../services/deepseekClient'
+import { useUserStore } from '../../store/userStore'
+import { getUserPlan } from '../../config/pricing'
 
 const tool = getToolById('essay-writer')
 
@@ -69,6 +73,10 @@ function wordCount(text) {
   return text.trim().split(/\s+/).filter(Boolean).length
 }
 
+function fitWordCount(text, target) {
+  return text.trim().split(/\s+/).filter(Boolean).slice(0, target).join(' ')
+}
+
 export default function EssayWriter() {
   const {
     step, setStep,
@@ -81,6 +89,15 @@ export default function EssayWriter() {
     reset,
   } = useEssayStore()
   const location = useLocation()
+  const navigate = useNavigate()
+  const user = useUserStore((s) => s.user)
+  const plan = getUserPlan(user?.profile)
+  const responseLanguage = {
+    english: 'English',
+    pidgin: 'Nigerian Pidgin English',
+    yoruba: 'Yoruba',
+    hausa: 'Hausa',
+  }[user?.profile?.language || 'english']
   const { saveSession, loadSession } = useToolSession('essay-writer', 'Essay Writer', '📝')
   // ── Session restore ───────────────────────────────
   useEffect(() => {
@@ -107,6 +124,7 @@ export default function EssayWriter() {
 
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
+  const [premiumPrompt, setPremiumPrompt] = useState(false)
   const essayChat = useEssayChat((updated) => setLiveEssay(updated))
   const essayRef = useRef(null)
 
@@ -114,12 +132,16 @@ export default function EssayWriter() {
 
   async function handleGenerateOutline() {
     if (!form.topic.trim()) return
+    if (Number(form.wordCount) > plan.limits.essayWordCount) {
+      setPremiumPrompt(true)
+      return
+    }
     setLoading(true)
     setError(null)
     setGeneratingSection('outline')
 
     try {
-      const { system, user } = buildOutlinePrompt(form)
+      const { system, user } = buildOutlinePrompt({ ...form, responseLanguage })
       let result = ''
       await streamCompletion({
         model: MODELS.chat,
@@ -146,60 +168,112 @@ export default function EssayWriter() {
   }
 
   async function handleGenerateEssay() {
-  if (!outline) return
-  setLoading(true)
-  setError(null)
-  setStage('essay')
-  setEssay('')
-  setLiveEssay('')
-
-  const sections = parseOutlineSections(outline)
-  const wordsPerSection = Math.ceil(parseInt(form.wordCount) / sections.length)
-  let fullEssay = ''
-
-  try {
-    for (let i = 0; i < sections.length; i++) {
-      const section = sections[i]
-      setGeneratingSection(section.title)
-
-      // Pass word target per section
-      const sectionForm = { ...form, sectionWordTarget: wordsPerSection }
-
-      const { system, user } = buildSectionPrompt(
-        sectionForm,
-        section.title,
-        section.points.join('\n'),
-        fullEssay,
-        i === 0,
-        i === sections.length - 1
-      )
-
-      let sectionContent = ''
-      await streamCompletion({
-        model: MODELS.chat,
-        messages: [
-          { role: 'system', content: system },
-          { role: 'user', content: user },
-        ],
-        temperature: 0.7,
-        maxTokens: 4096,
-        onChunk: (chunk) => {
-          sectionContent = chunk
-          setLiveEssay(fullEssay + '\n\n' + chunk)
-        },
-      })
-
-      fullEssay += (fullEssay ? '\n\n' : '') + sectionContent
-      setEssay(fullEssay)
-      setLiveEssay(fullEssay)
+    if (!outline) return
+    if (Number(form.wordCount) > plan.limits.essayWordCount) {
+      setPremiumPrompt(true)
+      return
     }
-  } catch (_err) {
-    setError('Failed to generate essay. Try again.')
-  } finally {
-    setLoading(false)
-    setGeneratingSection('')
+    setLoading(true)
+    setError(null)
+    setStage('essay')
+    setEssay('')
+    setLiveEssay('')
+
+    const sections = parseOutlineSections(outline)
+    if (!sections.length) {
+      setError('The outline has no usable sections. Please regenerate it.')
+      setLoading(false)
+      setStage('outline')
+      return
+    }
+
+    const target = Number(form.wordCount)
+    const baseSectionCount = Math.floor(target / sections.length)
+    const extraWords = target % sections.length
+    let fullEssay = ''
+
+    try {
+      for (let i = 0; i < sections.length; i++) {
+        const section = sections[i]
+        setGeneratingSection(section.title)
+
+        const sectionForm = {
+          ...form,
+          responseLanguage,
+          sectionWordTarget: baseSectionCount + (i < extraWords ? 1 : 0),
+        }
+
+        const { system, user } = buildSectionPrompt(
+          sectionForm,
+          section.title,
+          section.points.join('\n'),
+          fullEssay,
+          i === 0,
+          i === sections.length - 1
+        )
+
+        let sectionContent = ''
+        await streamCompletion({
+          model: MODELS.chat,
+          messages: [
+            { role: 'system', content: system },
+            { role: 'user', content: user },
+          ],
+          temperature: 0.5,
+          maxTokens: 4096,
+          onChunk: (chunk) => {
+            sectionContent = chunk
+            setLiveEssay([fullEssay, chunk].filter(Boolean).join('\n\n'))
+          },
+        })
+
+        fullEssay = [fullEssay, sectionContent].filter(Boolean).join('\n\n')
+        setEssay(fullEssay)
+        setLiveEssay(fullEssay)
+      }
+
+      for (let attempt = 0; wordCount(fullEssay) < target && attempt < 4; attempt++) {
+        const remainingWords = target - wordCount(fullEssay)
+        let additionalText = ''
+        await streamCompletion({
+          model: MODELS.chat,
+          messages: [
+            {
+              role: 'system',
+              content: `Continue the essay in ${responseLanguage} with relevant, non-repetitive material. Return only the continuation, with exactly ${remainingWords} whitespace-separated words.`,
+            },
+            {
+              role: 'user',
+              content: `Topic: ${form.topic}\n\nEssay so far:\n${fullEssay}`,
+            },
+          ],
+          temperature: 0.4,
+          maxTokens: Math.min(4096, Math.max(256, remainingWords * 2)),
+          onChunk: (chunk) => {
+            additionalText = chunk
+            setLiveEssay([fullEssay, chunk].filter(Boolean).join('\n\n'))
+          },
+        })
+        fullEssay = [fullEssay, additionalText].filter(Boolean).join('\n\n')
+      }
+
+      if (wordCount(fullEssay) < target) {
+        throw new Error(`The model returned ${wordCount(fullEssay)} of the requested ${target} words.`)
+      }
+
+      const exactEssay = fitWordCount(fullEssay, target)
+      setEssay(exactEssay)
+      setLiveEssay(exactEssay)
+    } catch (generationError) {
+      setEssay('')
+      setLiveEssay('')
+      setError(generationError.message || 'Failed to generate an exact-length essay. Please try again.')
+      console.error('Essay generation failed:', generationError)
+    } finally {
+      setLoading(false)
+      setGeneratingSection('')
+    }
   }
-}
 
   function handleDownload() {
     if (!currentEssay) return
@@ -275,20 +349,28 @@ export default function EssayWriter() {
 
             <div className="grid grid-cols-2 gap-3">
               {WORD_COUNTS.map(({ label, value }) => (
-                <button
-                  key={value}
-                  onClick={() => updateForm('wordCount', value)}
-                  className={`py-5 rounded-2xl border-2 text-center transition-all
-                    ${form.wordCount === value
-                      ? 'border-violet-500 bg-violet-50'
-                      : 'border-zinc-200 hover:border-violet-300'
-                    }`}
-                >
-                  <p className={`text-2xl font-bold ${form.wordCount === value ? 'text-violet-700' : 'text-zinc-800'}`}>
-                    {label}
-                  </p>
-                  <p className="text-xs text-zinc-400 mt-1">words</p>
-                </button>
+                (() => {
+                  const premiumOnly = Number(value) > plan.limits.essayWordCount
+                  return (
+                    <button
+                      key={value}
+                      onClick={() => {
+                        if (premiumOnly) setPremiumPrompt(true)
+                        else updateForm('wordCount', value)
+                      }}
+                      className={`py-5 rounded-2xl border-2 text-center transition-all
+                        ${form.wordCount === value
+                          ? 'border-violet-500 bg-violet-50'
+                          : 'border-zinc-200 hover:border-violet-300'
+                        }`}
+                    >
+                      <p className={`text-2xl font-bold ${form.wordCount === value ? 'text-violet-700' : 'text-zinc-800'}`}>
+                        {label}{premiumOnly ? ' 💳' : ''}
+                      </p>
+                      <p className="text-xs text-zinc-400 mt-1">words</p>
+                    </button>
+                  )
+                })()
               ))}
             </div>
 
@@ -603,7 +685,7 @@ export default function EssayWriter() {
                   <div className="flex items-center justify-between">
                     <p className="text-sm font-semibold text-zinc-800">Essay complete</p>
                     <span className={`text-xs px-2 py-0.5 rounded-full font-medium
-                      ${wordCount(currentEssay) >= parseInt(form.wordCount) * 0.9
+                      ${wordCount(currentEssay) === parseInt(form.wordCount)
                         ? 'bg-green-100 text-green-700'
                         : 'bg-amber-100 text-amber-700'
                       }`}
@@ -703,6 +785,11 @@ export default function EssayWriter() {
                       placeholder="Ask Ace to refine the essay..."
                       disabled={essayChat.loading}
                       className="flex-1 bg-transparent text-xs text-zinc-800 placeholder:text-zinc-400 outline-none disabled:opacity-50"
+                    />
+                    <ChatInputActions
+                      value={essayChat.input}
+                      onChange={essayChat.setInput}
+                      disabled={essayChat.loading}
                     />
                     <button
                       onClick={() => essayChat.send(currentEssay)}
@@ -861,6 +948,30 @@ export default function EssayWriter() {
           </div>
         )}
       </div>
+      {premiumPrompt && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl">
+            <h2 className="text-lg font-bold text-zinc-900">Premium essay length</h2>
+            <p className="mt-2 text-sm leading-relaxed text-zinc-600">
+              You don't have a Premium subscription to use this. Kindly subscribe to unlock longer essays.
+            </p>
+            <div className="mt-5 flex flex-col gap-2">
+              <button
+                onClick={() => navigate('/pricing')}
+                className="w-full rounded-xl bg-violet-600 py-3 text-sm font-semibold text-white hover:bg-violet-700"
+              >
+                View plans
+              </button>
+              <button
+                onClick={() => setPremiumPrompt(false)}
+                className="w-full rounded-xl py-3 text-sm text-zinc-500 hover:bg-zinc-50"
+              >
+                Maybe later
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </ToolLayout>
   )
 }

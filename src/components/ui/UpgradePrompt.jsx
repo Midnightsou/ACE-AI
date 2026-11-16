@@ -19,9 +19,10 @@ export default function UpgradePrompt({ message, onClose }) {
           {/* Quick feature highlights */}
           <div className="flex flex-col gap-2">
             {[
-              '200 messages per day',
-              'All languages — Pidgin, Yoruba, Hausa',
+              'More messages before the cooldown',
+              'All languages included on every plan',
               'Unlimited tool generations',
+              'Essays up to 5,000 words',
               'PDF export for CV and Cover Letter',
             ].map((f) => (
               <div key={f} className="flex items-center gap-2 text-sm text-zinc-700">
@@ -38,7 +39,7 @@ export default function UpgradePrompt({ message, onClose }) {
               onClick={() => { navigate('/pricing'); onClose?.() }}
               className="w-full py-3 bg-violet-600 hover:bg-violet-700 text-white text-sm font-semibold rounded-xl transition-colors"
             >
-              See plans — from ₦2,500/month
+              See plans — from ₦3,000/month
             </button>
             <button
               onClick={onClose}

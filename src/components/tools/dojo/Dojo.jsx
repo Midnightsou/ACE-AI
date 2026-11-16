@@ -17,7 +17,7 @@ const TABS = [
   { id: 'podcast', label: 'Podcast', icon: '🎙' },
 ]
 
-export default function Dojo() {
+export default function Dojo({ onOpenMenu }) {
   const [activeTab, setActiveTab] = useState('chat')
   const [sourcesOpen, setSourcesOpen] = useState(false)
 
@@ -44,6 +44,15 @@ export default function Dojo() {
   return (
     <div className="flex h-full flex-col bg-zinc-50">
       <div className="flex gap-2 overflow-x-auto border-b border-zinc-200 bg-white px-4 py-3 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <button
+          onClick={onOpenMenu}
+          aria-label="Open menu"
+          className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl text-zinc-500 hover:bg-zinc-100 md:hidden"
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+            <path d="M3 12h18M3 6h18M3 18h18"/>
+          </svg>
+        </button>
         <button
           onClick={() => setSourcesOpen(true)}
           className="min-h-11 flex-shrink-0 rounded-full border border-violet-200 bg-violet-50 px-3 py-1.5 text-sm font-medium text-violet-700 lg:hidden"

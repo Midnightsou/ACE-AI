@@ -21,7 +21,7 @@ A comprehensive AI-powered learning and productivity platform. ACE AI provides i
 - Real-time streaming responses
 - Multi- nigeria language support (English, Hausa, Yoruba, Pidgin)
 - Conversation history and persistence
-- File upload and text extraction (OCR, PDF parsing)
+- Image understanding, OCR, and PDF text extraction
 - Math visualization with KaTeX and Plotly
 - Audio generation
 - Web search and content extraction
@@ -137,7 +137,9 @@ my-grim-tutor/
    VITE_FIREBASE_APP_ID=your_firebase_app_id
    VITE_DEEPSEEK_API_KEY=your_deepseek_api_key
    VITE_ELEVENLABS_API_KEY=your_elevenlabs_api_key
+   OCR_SPACE_API_KEY=your_ocr_space_api_key
    ```
+   OCR processing uses this server-side key. Add it to the Vercel project environment variables for production; do not use a `VITE_` prefix. Main chat image attachments are analyzed visually and do not require OCR.
 
 4. **Start the development server**
    ```bash

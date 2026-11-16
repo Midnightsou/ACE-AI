@@ -218,7 +218,7 @@ export default function Sidebar({ isOpen, onClose }) {
                 <span className="text-sm">⭐</span>
                 <div>
                   <p className="text-sm font-medium text-violet-700">Upgrade to Pro</p>
-                  <p className="text-xs text-violet-600/80">From ₦2,500/month</p>
+                  <p className="text-xs text-violet-600/80">From ₦3,000/month</p>
                 </div>
               </button>
             </div>

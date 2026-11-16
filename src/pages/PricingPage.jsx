@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useUserStore } from '../store/userStore'
 import { PLANS, getUserPlan } from '../config/pricing'
 import { updateProfile } from '../services/memory'
+import Sidebar from '../components/sidebar/Sidebar'
 
 function PlanCard({ plan, currentPlan, onSelect, loading }) {
   const isCurrentPlan = currentPlan.id === plan.id
@@ -84,6 +85,7 @@ export default function PricingPage() {
   const setUser = useUserStore((s) => s.setUser)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
+  const [sidebarOpen, setSidebarOpen] = useState(false)
 
   const currentPlan = getUserPlan(user?.profile)
 
@@ -132,12 +134,18 @@ export default function PricingPage() {
               await updateProfile(user.uid, {
                 plan: plan.id,
                 isPro: true,
+                messageCooldownUntil: null,
                 paystackReference: response.reference,
                 planActivatedAt: new Date().toISOString(),
               })
               setUser({
                 ...user,
-                profile: { ...user.profile, plan: plan.id, isPro: true },
+                profile: {
+                  ...user.profile,
+                  plan: plan.id,
+                  isPro: true,
+                  messageCooldownUntil: null,
+                },
               })
               navigate('/chat')
             } catch {
@@ -157,9 +165,20 @@ export default function PricingPage() {
   }
 
   return (
-    <div className="min-h-screen bg-zinc-50">
+    <div className="flex min-h-screen bg-zinc-50">
+      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+      <div className="min-w-0 flex-1">
       {/* Header */}
       <div className="bg-white border-b border-zinc-100 px-5 py-4 flex items-center gap-3">
+        <button
+          onClick={() => setSidebarOpen(true)}
+          aria-label="Open menu"
+          className="flex h-10 w-10 items-center justify-center rounded-xl text-zinc-500 hover:bg-zinc-100 md:hidden"
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+            <path d="M3 12h18M3 6h18M3 18h18"/>
+          </svg>
+        </button>
         <button
           onClick={() => navigate(-1)}
           className="text-zinc-400 hover:text-zinc-700 transition-colors"
@@ -223,8 +242,8 @@ export default function PricingPage() {
               a: 'Coming soon. Follow us on X for updates.',
             },
             {
-              q: 'What happens when I hit my daily limit?',
-              a: "You'll see an upgrade prompt. Your conversations are saved and you can continue the next day or upgrade immediately.",
+              q: 'What happens when I reach 20 messages?',
+              a: "Free accounts get 20 messages, then can upgrade to Pro or Premium or wait through a five-hour cooldown. A live countdown shows when messaging becomes available again.",
             },
           ].map(({ q, a }) => (
             <div key={q} className="bg-white border border-zinc-100 rounded-xl p-5">
@@ -233,6 +252,7 @@ export default function PricingPage() {
             </div>
           ))}
         </div>
+      </div>
       </div>
     </div>
   )

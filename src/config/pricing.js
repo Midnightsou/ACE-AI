@@ -8,25 +8,24 @@ export const PLANS = {
     badge: null,
     color: 'zinc',
     limits: {
-      dailyMessages: 50,
+      dailyMessages: 20,
       toolGenerations: 5,
       dojoSources: 2,
-      essayWordCount: 1000,
+      essayWordCount: 2000,
     },
     features: [
-      '50 AI messages per day',
+      '20 AI messages, then a 5-hour cooldown',
       'Access to all tools (limited)',
       '5 tool generations per day',
       'Dojo — 2 sources max',
-      'Essays up to 1,000 words',
-      'English language only',
+      'Essays up to 2,000 words',
+      'All supported languages',
       'Standard response speed',
     ],
     notIncluded: [
-      'Unlimited messages',
+      '200 AI messages per day',
       'Priority AI speed',
-      'All languages',
-      'Essay up to 5,000 words',
+      'Essays up to 5,000 words',
       'Unlimited Dojo sources',
       'CV PDF export',
     ],
@@ -52,7 +51,7 @@ export const PLANS = {
       '50 tool generations per day',
       'Dojo — 10 sources',
       'Essays up to 5,000 words',
-      'All 4 languages (Pidgin, Yoruba, Hausa)',
+      'All supported languages',
       'Priority AI speed',
       'CV & Cover Letter PDF export',
       
@@ -64,7 +63,7 @@ export const PLANS = {
   },
   proPlus: {
     id: 'proPlus',
-    name: 'Pro+',
+    name: 'Premium',
     price: 20000,
     currency: 'NGN',
     interval: 'month',
@@ -83,7 +82,7 @@ export const PLANS = {
       'Unlimited tool generations',
       'Dojo — unlimited sources',
       'Essays up to 7,000 words',
-      'All 4 languages',
+      'All supported languages',
       'Fastest AI speed (R1 for all)',
       'CV & Cover Letter PDF export',
       
@@ -116,7 +115,7 @@ export function canUseFeature(profile, feature, currentCount = 0) {
       return plan.limits.dojoSources === Infinity ||
         currentCount < plan.limits.dojoSources
     case 'language':
-      return plan.id !== 'free'
+      return true
     case 'imageGeneration':
       return plan.id !== 'free'
     case 'pdfExport':
@@ -128,10 +127,9 @@ export function canUseFeature(profile, feature, currentCount = 0) {
 
 export function getUpgradeMessage(feature) {
   const messages = {
-    message: "You've used all your free messages today. Upgrade to Pro for 200 messages/day.",
+    message: "You've used all 20 free messages in this window. Upgrade to Pro or Premium, or come back after the 5-hour cooldown.",
     toolGeneration: "You've reached your daily tool limit. Upgrade to Pro for 50 generations/day.",
     dojoSource: "Free plan allows 2 sources. Upgrade to Pro for up to 10 sources.",
-    language: "Local languages are a Pro feature. Upgrade to use Pidgin, Yoruba, and Hausa.",
     imageGeneration: "Image generation is a Pro feature.",
     pdfExport: "PDF export is a Pro feature. Upgrade to download your documents.",
   }

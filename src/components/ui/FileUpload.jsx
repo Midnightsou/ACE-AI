@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 import { extractTextFromPDF } from '../../services/pdf'
-import { extractTextFromImage } from '../../services/ocr'
+import { imageToDataUrl } from '../../services/vision'
 
 export default function FileUpload({ onExtracted, disabled }) {
   const inputRef = useRef(null)
@@ -34,13 +34,9 @@ export default function FileUpload({ onExtracted, disabled }) {
         }
         onExtracted({ type: 'pdf', name: file.name, content: text })
       } else {
-        const text = await extractTextFromImage(file)
-        if (!text || text.length < 5) {
-          alert('Could not read text from this image. Make sure it is clear and well-lit.')
-          return
-        }
+        const imageDataUrl = await imageToDataUrl(file)
         const previewUrl = URL.createObjectURL(file)
-        onExtracted({ type: 'image', name: file.name, content: text, previewUrl })
+        onExtracted({ type: 'image', name: file.name, imageDataUrl, previewUrl })
       }
     } catch (err) {
       console.error('File processing error:', err)

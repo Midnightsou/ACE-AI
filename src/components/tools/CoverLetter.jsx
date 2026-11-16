@@ -4,6 +4,7 @@ import { useToolSession } from '../../hooks/useToolSession'
 import { useCoverLetterStore } from '../../store/coverLetterStore'
 import { useTool } from '../../hooks/useTool'
 import { useCoverLetterChat } from '../../hooks/useCoverLetterChat'
+import ChatInputActions from '../chat/ChatInputActions'
 import ToolLayout from './ToolLayout'
 import CVStylePicker from './CVStylePicker'
 import { GenerateButton } from './ToolInput'
@@ -482,6 +483,11 @@ export default function CoverLetter() {
                     placeholder="Ask Ace to tweak anything..."
                     disabled={chat.loading}
                     className="flex-1 bg-transparent text-xs text-zinc-800 placeholder:text-zinc-400 outline-none disabled:opacity-50"
+                  />
+                  <ChatInputActions
+                    value={chat.input}
+                    onChange={chat.setInput}
+                    disabled={chat.loading}
                   />
                   <button
                     onClick={() => chat.send(currentLetter)}

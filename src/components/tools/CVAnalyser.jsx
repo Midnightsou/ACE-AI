@@ -142,7 +142,7 @@ export default function CVAnalyser() {
       updateForm('cvText', text)
     } catch (err) {
       console.error('File extraction error:', err)
-      alert('Failed to read file. Try again.')
+      alert(`Failed to read file: ${err.message || 'Try again.'}`)
       setFileName('')
     } finally {
       setFileLoading(false)

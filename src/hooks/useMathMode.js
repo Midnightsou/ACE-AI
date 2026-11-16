@@ -233,7 +233,7 @@ export function useMathMode() {
           messages: [
             {
               role: 'system',
-              content: buildMathSystemPrompt(),
+              content: buildMathSystemPrompt(user?.profile?.language || 'english'),
             },
 
             ...history.map((m) => ({

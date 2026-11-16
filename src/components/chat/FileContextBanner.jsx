@@ -25,7 +25,7 @@ export default function FileContextBanner({ file, onClear }) {
         <p className="text-xs text-violet-500">
           {file.type === 'pdf'
             ? 'PDF loaded — ask Ace anything about it'
-            : 'Image scanned — ask Ace to explain or solve it'}
+            : 'Image attached — ask Ace to describe, read, or analyze it'}
         </p>
       </div>
 

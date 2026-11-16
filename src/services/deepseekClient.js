@@ -9,6 +9,7 @@ function getBaseUrl() {
 
 export const MODELS = {
   chat: 'deepseek-chat',
+  vision: 'deepseek-flash',
   reasoner: 'deepseek-reasoner',
 }
 

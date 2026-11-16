@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import ChatInputActions from '../chat/ChatInputActions'
 
 const SUGGESTIONS = [
   'Make the summary more confident',
@@ -104,6 +105,7 @@ export default function CVChat({ currentCV, onUpdate }) {
           disabled={loading}
           className="flex-1 bg-transparent text-sm text-zinc-800 placeholder:text-zinc-400 outline-none disabled:opacity-50"
         />
+        <ChatInputActions value={input} onChange={setInput} disabled={loading} />
         <button
           onClick={() => send(currentCV)}
           disabled={loading || !input.trim()}

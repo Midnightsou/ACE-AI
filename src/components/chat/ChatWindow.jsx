@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useChat } from '../../hooks/useChat'
 import { useUserStore } from '../../store/userStore'
 import MessageBubble from './MessageBubble'
@@ -6,8 +7,8 @@ import GrimMascot from '../GrimMascot'
 import InputBar from './InputBar'
 import FileContextBanner from './FileContextBanner'
 import StreamingBubble from './StreamingBubble'
-import CopyConversation from './CopyConversation'
 import ThemeToggle from '../ui/ThemeToggle'
+import VoiceCallMode from '../voice/VoiceCallMode'
 import { MessageSkeleton } from '../ui/Skeleton'
 import { createShareLink } from '../../services/shareService'
 import { useConversationStore } from '../../store/conversationStore'
@@ -27,14 +28,23 @@ const languageLabels = {
   hausa: 'Hausa',
 }
 
+function formatCountdown(milliseconds) {
+  const totalSeconds = Math.max(0, Math.ceil(milliseconds / 1000))
+  const hours = Math.floor(totalSeconds / 3600)
+  const minutes = Math.floor((totalSeconds % 3600) / 60)
+  const seconds = totalSeconds % 60
+  return `${hours}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
+}
+
 export default function ChatWindow() {
   const {
     messages, streamingContent, loading,
     fileContext, setFileContext,
     isSearching, loadingConversation,
-    send, handleEdit, retry,
+    send, handleEdit, handleVersionChange, retry,
   } = useChat()
   const user = useUserStore((s) => s.user)
+  const navigate = useNavigate()
   const bottomRef = useRef(null)
 
   const language = user?.profile?.language || 'english'
@@ -44,19 +54,40 @@ export default function ChatWindow() {
   )
   const { toast } = useToast()
   const [sharing, setSharing] = useState(false)
+  const [clock, setClock] = useState(null)
+  const [voiceOpen, setVoiceOpen] = useState(false)
 
-  async function handleShare() {
-    if (!messages.length || !user?.uid) return
+  useEffect(() => {
+    const timer = setInterval(() => setClock(Date.now()), 1000)
+    return () => clearInterval(timer)
+  }, [])
+
+  function showUsageWarning(result) {
+    if (result.count === 10) {
+      toast.info('10 messages in: Ace is getting warmed up. You still have 10 before the paywall monster appears 🐉', { duration: 6000 })
+    } else if (result.count === 15) {
+      toast.info('15 messages down! Five more and Ace starts charging rent for all this wisdom 😅', { duration: 7000 })
+    } else if (result.count === 20) {
+      toast.info('That was message 20! You can upgrade now or return after the 5-hour recharge.', { duration: 7000 })
+    }
+  }
+
+  async function handleSend(text) {
+    await send(text, { onUsage: showUsageWarning })
+  }
+
+  async function handleShareMessage(message) {
+    if (!message?.content || !user?.uid) return
     setSharing(true)
     try {
       const url = await createShareLink(
         user.uid,
         activeConversationId || 'temp',
-        messages,
+        [message],
         activeConversation?.title || 'Ace Conversation'
       )
       await navigator.clipboard.writeText(url)
-      toast.success('Link copied to clipboard')
+      toast.success('Message link copied to clipboard')
     } catch (err) {
       console.error(err)
       toast.error('Failed to create share link')
@@ -83,18 +114,6 @@ export default function ChatWindow() {
           <p className="text-sm font-semibold text-zinc-900">Ace</p>
           <p className="text-xs text-zinc-400">{languageLabels[language]} mode</p>
         </div>
-        <button
-          onClick={handleShare}
-          disabled={sharing || !messages.length}
-          className="flex items-center gap-1.5 text-xs text-zinc-400 hover:text-violet-600 transition-colors disabled:opacity-40"
-        >
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-            <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
-            <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
-          </svg>
-          Share
-        </button>
-        <CopyConversation messages={messages} />
         <ThemeToggle className="ml-auto" />
       </div>
 
@@ -121,7 +140,7 @@ export default function ChatWindow() {
               {(starterPrompts[language] || starterPrompts.english).map((prompt) => (
                 <button
                   key={prompt}
-                  onClick={() => send(prompt)}
+                  onClick={() => handleSend(prompt)}
                   className="text-sm text-left px-4 py-3 bg-white border border-zinc-200 rounded-xl hover:border-violet-400 hover:bg-violet-50 transition-colors text-zinc-700"
                 >
                   {prompt}
@@ -137,6 +156,9 @@ export default function ChatWindow() {
                 message={msg}
                 index={i}
                 onEdit={handleEdit}
+                onVersionChange={handleVersionChange}
+                onShare={handleShareMessage}
+                sharing={sharing}
               />
             ))}
 
@@ -184,11 +206,27 @@ export default function ChatWindow() {
       </div>
 
       {/* Input */}
+      {clock && user?.profile?.dailyMessageCount >= 20 && user?.profile?.messageCooldownUntil &&
+        Date.parse(user.profile.messageCooldownUntil) > clock && (
+        <div className="mx-4 mb-2 flex items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-800">
+          <span>
+            You’ve reached 20 messages. Ace is on a five-hour recharge break: {formatCountdown(Date.parse(user.profile.messageCooldownUntil) - clock)}.
+          </span>
+          <button
+            onClick={() => navigate('/pricing')}
+            className="shrink-0 rounded-lg bg-violet-600 px-3 py-2 font-semibold text-white hover:bg-violet-700"
+          >
+            Upgrade
+          </button>
+        </div>
+      )}
       <InputBar
-        onSend={send}
+        onSend={handleSend}
         onFileExtracted={setFileContext}
+        onVoiceClick={() => setVoiceOpen(true)}
         disabled={loading || isSearching}
       />
+      {voiceOpen && <VoiceCallMode onClose={() => setVoiceOpen(false)} />}
     </div>
   )
 }

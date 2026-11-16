@@ -188,7 +188,7 @@ export function useCodex() {
         messages: [
           {
             role: 'system',
-            content: buildCodexSystemPrompt(language),
+            content: buildCodexSystemPrompt(language, user?.profile?.language || 'english'),
           },
 
           ...history.map((m) => ({

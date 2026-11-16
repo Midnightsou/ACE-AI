@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { useState } from 'react'
+import { Analytics } from '@vercel/analytics/react'
 import { useUserStore } from './store/userStore'
 import { useChatStore } from './store/chatStore'
 import { useConversationStore } from './store/conversationStore'
@@ -68,6 +69,7 @@ export default function App() {
       <AuthProvider>
         <AppRouter />
       </AuthProvider>
+      <Analytics />
     </>
   )
 }

@@ -1,5 +1,5 @@
 import 'katex/dist/katex.min.css'
-import { InlineMath, BlockMath } from 'react-katex'
+import katex from 'katex'
 import { Component } from 'react'
 
 // Error boundary instead of try/catch around JSX
@@ -148,10 +148,20 @@ function parseContent(text) {
   return parts
 }
 
+function KatexOutput({ math, displayMode = false }) {
+  return (
+    <span
+      dangerouslySetInnerHTML={{
+        __html: katex.renderToString(math, { displayMode, throwOnError: true }),
+      }}
+    />
+  )
+}
+
 function RenderInline({ math }) {
   return (
     <MathErrorBoundary fallback={math}>
-      <InlineMath math={math} />
+      <KatexOutput math={math} />
     </MathErrorBoundary>
   )
 }
@@ -160,7 +170,7 @@ function RenderBlock({ math }) {
   return (
     <MathErrorBoundary fallback={math}>
       <span className="block my-4 overflow-x-auto py-2 text-center">
-        <BlockMath math={math} />
+        <KatexOutput math={math} displayMode />
       </span>
     </MathErrorBoundary>
   )
